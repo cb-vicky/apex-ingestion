@@ -434,14 +434,14 @@ function IngestionTabPill({
       </div>
 
       {/* Right: status + action area - no housing */}
-      <div className="flex items-center gap-3 pb-2">
+      <div className="flex items-end gap-3">
         {/* Status selector */}
         <div ref={statusMenuRef} className="relative">
           <button
             type="button"
             onClick={() => setStatusMenuOpen((o) => !o)}
             className={cn(
-              "flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors",
+              "flex h-8 items-center gap-1.5 rounded-t-lg rounded-b-none border border-b-0 px-3 text-[12px] font-medium transition-colors",
               activeStatus.borderColor,
               activeStatus.bgColor,
               activeStatus.color,
@@ -475,14 +475,14 @@ function IngestionTabPill({
           )}
         </div>
 
-        {/* CTA buttons - no housing */}
-        <div className="flex items-center gap-2">
+        {/* CTA buttons - sitting on the line */}
+        <div className="flex items-end gap-1">
           <button
             type="button"
             onClick={handlePrimaryAction}
             disabled={isPreviewInvoice && hasUnresolvedItems}
             className={cn(
-              "flex h-8 items-center rounded-full px-4 font-sora text-[13px] font-semibold transition-colors",
+              "flex h-8 items-center rounded-t-lg rounded-b-none px-4 font-sora text-[13px] font-semibold transition-colors",
               isPreviewInvoice && hasUnresolvedItems
                 ? "cursor-not-allowed bg-gray-200 text-gray-400"
                 : "bg-blue-600 text-white hover:bg-blue-700"
@@ -490,7 +490,7 @@ function IngestionTabPill({
           >
             {isPreviewInvoice ? "Send for approval" : "Preview"}
           </button>
-          <div ref={menuRef} className="relative">
+          <div ref={menuRef} className="relative flex h-8 items-center">
             <button
               type="button"
               onClick={() => setMenuOpen((o) => !o)}
@@ -498,7 +498,7 @@ function IngestionTabPill({
               aria-expanded={menuOpen}
               aria-label="More actions"
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-gray-200 hover:text-slate-700",
+                "flex h-8 w-8 items-center justify-center rounded-t-lg rounded-b-none text-slate-500 transition-colors hover:bg-gray-200 hover:text-slate-700",
                 menuOpen && "bg-gray-200 text-slate-700",
               )}
             >

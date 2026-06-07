@@ -309,7 +309,7 @@ function IngestionTabPill({
   const statusMenuRef = useRef<HTMLDivElement>(null);
   const activeFlowIndex = ingestionSubTabs.findIndex((t) => t.id === activeSubTab);
   const isPreviewInvoice = activeSubTab === "preview-invoice";
-  const canSendForApproval = isPreviewInvoice && !hasUnresolvedItems;
+  const _canSendForApproval = isPreviewInvoice && !hasUnresolvedItems;
   const activeStatus = CONTRACT_STATUSES.find((s) => s.id === currentStatus)!;
 
   useEffect(() => {

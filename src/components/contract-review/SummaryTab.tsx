@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from "react";
-import { Check, Pin, Plus, X } from "lucide-react";
+import { Check, ExternalLink, Pin, Plus, X } from "lucide-react";
 import type { Address, BillingInfo, CustomerDetails, LineItem } from "@/data/mock-contracts";
 import { cn } from "@/lib/utils";
 import { ReadyBadge, NeedsMappingBadge } from "./StatusBadges";
@@ -655,6 +655,43 @@ function AddNotesButton() {
   );
 }
 
+export interface SourcePDF {
+  id: string;
+  name: string;
+}
+
+function SourcePDFStrip({ files, onOpenPDF }: { files: SourcePDF[]; onOpenPDF?: (pdf: SourcePDF) => void }) {
+  const truncateName = (name: string, maxLen = 10) => {
+    if (name.length <= maxLen) return name;
+    return name.slice(0, maxLen) + "…";
+  };
+
+  return (
+    <div className="mb-3 flex items-center justify-between rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-1.5">
+      <span className="shrink-0 text-[11px] font-medium text-gray-500">Contract PDFs</span>
+      <div className="flex items-center gap-3">
+        {files.map((file) => (
+          <button
+            key={file.id}
+            type="button"
+            onClick={() => onOpenPDF?.(file)}
+            className="inline-flex items-center gap-1 text-[12px] font-medium text-blue-600 hover:text-blue-700 hover:underline"
+          >
+            <span>{truncateName(file.name)}</span>
+            <ExternalLink size={11} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export const contractPDFs: SourcePDF[] = [
+  { id: "msa-main", name: "MSA-2026-ZA-001.pdf" },
+  { id: "schedule-a", name: "Schedule-A-Pricing.pdf" },
+  { id: "addendum", name: "Addendum-Terms.pdf" },
+];
+
 function SummarySectionCard({
   id,
   heading,
@@ -668,6 +705,8 @@ function SummarySectionCard({
   thumbnailType,
   notes,
   onNotesChange,
+  showSourcePDFs = false,
+  onOpenPDF,
 }: {
   id: string;
   heading: string;
@@ -681,6 +720,8 @@ function SummarySectionCard({
   thumbnailType: "customer" | "lineItems" | "billing" | "addresses";
   notes: Note[];
   onNotesChange: (notes: Note[]) => void;
+  showSourcePDFs?: boolean;
+  onOpenPDF?: (pdf: SourcePDF) => void;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -697,6 +738,8 @@ function SummarySectionCard({
             {ready && <ReadyBadge />}
             {hasError && <NeedsMappingBadge count={1} />}
           </div>
+          {/* Source PDFs strip */}
+          {showSourcePDFs && <SourcePDFStrip files={contractPDFs} onOpenPDF={onOpenPDF} />}
           {/* Table content */}
           {children}
         </div>
@@ -815,6 +858,7 @@ export function SummaryTab({
   onBillingAddressChange,
   onShippingAddressChange,
   onSameAsBillingChange,
+  onOpenPDF,
 }: {
   customerDetails: CustomerDetails;
   lineItems: LineItem[];
@@ -828,6 +872,7 @@ export function SummaryTab({
   onBillingAddressChange: (addr: Address) => void;
   onShippingAddressChange: (addr: Address) => void;
   onSameAsBillingChange: (same: boolean) => void;
+  onOpenPDF?: (pdf: SourcePDF) => void;
 }) {
   const unmappedCount = lineItems.filter((i) => i.mappingStatus === "needs_mapping").length;
   const lineItemsReady = unmappedCount === 0;
@@ -850,6 +895,8 @@ export function SummaryTab({
           thumbnailType="customer"
           notes={customerNotes}
           onNotesChange={setCustomerNotes}
+          showSourcePDFs
+          onOpenPDF={onOpenPDF}
         >
           <CustomerDetailsTable data={customerDetails} onChange={onCustomerDetailsChange} />
         </SummarySectionCard>

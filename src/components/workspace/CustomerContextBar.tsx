@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ChevronDown, ChevronRight, MoreHorizontal, RotateCcw, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, MoreHorizontal, RotateCcw, Trash2, X } from "lucide-react";
 import {
   breadcrumbs,
   ingestionSubTabs,
@@ -17,6 +17,7 @@ import {
   type StageId,
 } from "@/data/mock-data";
 import { cn, formatCompactCurrency, formatShortDate } from "@/lib/utils";
+import type { SourcePDF } from "@/components/contract-review/SummaryTab";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Trapezoidal tab shape constants — narrower top, wider bottom (file-folder look)
@@ -297,17 +298,25 @@ function IngestionTabPill({
   activeSubTab,
   onSubTabChange,
   hasUnresolvedItems = false,
+  openPDFs = [],
+  activePDF,
+  onSelectPDF,
+  onClosePDF,
 }: {
   activeSubTab: string;
   onSubTabChange: (id: string) => void;
   hasUnresolvedItems?: boolean;
+  openPDFs?: SourcePDF[];
+  activePDF?: SourcePDF | null;
+  onSelectPDF?: (pdf: SourcePDF | null) => void;
+  onClosePDF?: (pdfId: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<ContractStatus>("in-review");
+  const [hoveredPDF, setHoveredPDF] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const statusMenuRef = useRef<HTMLDivElement>(null);
-  const activeFlowIndex = ingestionSubTabs.findIndex((t) => t.id === activeSubTab);
   const isPreviewInvoice = activeSubTab === "preview-invoice";
   const activeStatus = CONTRACT_STATUSES.find((s) => s.id === currentStatus)!;
 
@@ -325,56 +334,107 @@ function IngestionTabPill({
     if (!isPreviewInvoice) onSubTabChange("preview-invoice");
   };
 
+  const truncateName = (name: string, maxLen = 12) => {
+    if (name.length <= maxLen) return name;
+    return name.slice(0, maxLen) + "…";
+  };
+
+  const isMainContentActive = !activePDF;
+
   return (
-    <>
-      {/* Left: sequential flow tabs */}
-      <div className="flex shrink-0 items-center rounded-full border border-gray-200/80 bg-white px-2 py-1.5">
-        <div className="flex items-center gap-0.5">
-          {ingestionSubTabs.map((tab, idx) => {
-            const isActive = activeSubTab === tab.id;
-            const isPast = activeFlowIndex > idx;
-            const isLast = idx === ingestionSubTabs.length - 1;
-            return (
-              <Fragment key={tab.id}>
-                <button
-                  type="button"
-                  onClick={() => !tab.disabled && onSubTabChange(tab.id)}
-                  disabled={tab.disabled}
+    <div className="flex items-end justify-between px-6">
+      {/* Left: sequential flow tabs + PDF tabs */}
+      <div className="flex shrink-0 items-end">
+        {/* Main ingestion tabs */}
+        {ingestionSubTabs.map((tab, idx) => {
+          const isActive = isMainContentActive && activeSubTab === tab.id;
+          return (
+            <Fragment key={tab.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!tab.disabled) {
+                    onSubTabChange(tab.id);
+                    onSelectPDF?.(null);
+                  }
+                }}
+                disabled={tab.disabled}
+                className={cn(
+                  "relative flex items-center gap-1.5 px-3 pb-2.5 pt-2 font-sora text-[13px] font-semibold transition-all",
+                  tab.disabled && "cursor-not-allowed opacity-40",
+                  isActive
+                    ? "text-blue-700"
+                    : tab.status === "complete"
+                      ? "text-emerald-600 hover:text-emerald-700"
+                      : "text-slate-500 hover:text-slate-700",
+                )}
+              >
+                <span
                   className={cn(
-                    "relative flex h-7 items-center gap-1.5 rounded-full border px-2.5 font-sora text-[13px] font-semibold transition-all",
-                    tab.disabled && "cursor-not-allowed opacity-40",
+                    "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold",
                     isActive
-                      ? "border-blue-200 bg-blue-50 text-blue-700"
+                      ? "bg-blue-100 text-blue-600"
                       : tab.status === "complete"
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                        : "border-gray-200 bg-gray-50 text-slate-600 hover:bg-gray-100",
+                        ? "bg-emerald-100 text-emerald-600"
+                        : tab.status === "error"
+                          ? "bg-red-100 text-red-600"
+                          : "bg-gray-200 text-gray-500",
                   )}
                 >
-                  <span
-                    className={cn(
-                      "flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-semibold",
-                      isActive
-                        ? "bg-blue-100 text-blue-600"
-                        : tab.status === "complete"
-                          ? "bg-emerald-100 text-emerald-600"
-                          : tab.status === "error"
-                            ? "bg-red-100 text-red-600"
-                            : "bg-gray-100 text-gray-500",
-                    )}
-                  >
-                    {stepBadge(tab.status, idx)}
-                  </span>
-                  <span>{tab.label}</span>
-                </button>
-                {!isLast && <div className={cn("h-px w-2 transition-colors", isPast || isActive ? "bg-blue-400" : "bg-gray-300")} />}
-              </Fragment>
-            );
-          })}
-        </div>
+                  {stepBadge(tab.status, idx)}
+                </span>
+                <span>{tab.label}</span>
+                {/* Active indicator - thick underline flush with bottom */}
+                {isActive && (
+                  <span className="absolute bottom-0 left-1 right-1 h-[3px] rounded-t-full bg-blue-600" />
+                )}
+              </button>
+            </Fragment>
+          );
+        })}
+
+        {/* PDF tabs */}
+        {openPDFs.map((pdf) => {
+          const isActive = activePDF?.id === pdf.id;
+          const isHovered = hoveredPDF === pdf.id;
+          return (
+            <button
+              key={pdf.id}
+              type="button"
+              onClick={() => onSelectPDF?.(pdf)}
+              onMouseEnter={() => setHoveredPDF(pdf.id)}
+              onMouseLeave={() => setHoveredPDF(null)}
+              className={cn(
+                "relative flex items-center gap-1.5 px-3 pb-2.5 pt-2 font-sora text-[13px] font-semibold transition-all",
+                isActive ? "text-blue-700" : "text-slate-500 hover:text-slate-700",
+              )}
+            >
+              <FileText size={14} className={isActive ? "text-blue-600" : "text-slate-400"} />
+              <span>{truncateName(pdf.name)}</span>
+              {/* Close button - only show on hover */}
+              {isHovered && (
+                <span
+                  role="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClosePDF?.(pdf.id);
+                  }}
+                  className="ml-0.5 flex h-4 w-4 items-center justify-center rounded text-slate-400 hover:bg-gray-200 hover:text-slate-600"
+                >
+                  <X size={12} />
+                </span>
+              )}
+              {/* Active indicator */}
+              {isActive && (
+                <span className="absolute bottom-0 left-1 right-1 h-[3px] rounded-t-full bg-blue-600" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Right: status + action area */}
-      <div className="flex flex-1 items-center justify-end gap-3">
+      {/* Right: status + action area - no housing */}
+      <div className="flex items-center gap-3 pb-2">
         {/* Status selector */}
         <div ref={statusMenuRef} className="relative">
           <button
@@ -415,14 +475,14 @@ function IngestionTabPill({
           )}
         </div>
 
-        {/* CTA unit */}
-        <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200/80 bg-white px-2 py-1.5">
+        {/* CTA buttons - no housing */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handlePrimaryAction}
             disabled={isPreviewInvoice && hasUnresolvedItems}
             className={cn(
-              "flex h-7 items-center rounded-full px-3 font-sora text-[13px] font-semibold transition-colors",
+              "flex h-8 items-center rounded-full px-4 font-sora text-[13px] font-semibold transition-colors",
               isPreviewInvoice && hasUnresolvedItems
                 ? "cursor-not-allowed bg-gray-200 text-gray-400"
                 : "bg-blue-600 text-white hover:bg-blue-700"
@@ -438,8 +498,8 @@ function IngestionTabPill({
               aria-expanded={menuOpen}
               aria-label="More actions"
               className={cn(
-                "flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-700",
-                menuOpen && "bg-gray-100 text-slate-700",
+                "flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-gray-200 hover:text-slate-700",
+                menuOpen && "bg-gray-200 text-slate-700",
               )}
             >
               <MoreHorizontal size={16} />
@@ -472,7 +532,7 @@ function IngestionTabPill({
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -546,6 +606,10 @@ export function CustomerContextBar({
   ingestionSubTab,
   onIngestionSubTabChange,
   hasUnresolvedItems = false,
+  openPDFs = [],
+  activePDF,
+  onSelectPDF,
+  onClosePDF,
 }: {
   customer: Customer;
   activeStage: StageId;
@@ -554,6 +618,10 @@ export function CustomerContextBar({
   ingestionSubTab: string;
   onIngestionSubTabChange: (id: string) => void;
   hasUnresolvedItems?: boolean;
+  openPDFs?: SourcePDF[];
+  activePDF?: SourcePDF | null;
+  onSelectPDF?: (pdf: SourcePDF | null) => void;
+  onClosePDF?: (pdfId: string) => void;
 }) {
   const isIngestion = activeStage === "ingestion";
   const gap = collapsed ? HEADER_TABS_GAP.collapsed : HEADER_TABS_GAP.expanded;
@@ -630,28 +698,44 @@ export function CustomerContextBar({
         </div>
       </div>
 
-      {/* Separator line + hanging pills */}
-      <div className="relative h-px w-full" style={{ background: BORDER_GREY }}>
-        {isIngestion ? (
-          <div className="absolute left-0 right-0 top-[1px] px-6">
-            <div className="sticky top-0 z-20 mt-1.5 flex items-center">
-              <IngestionTabPill activeSubTab={ingestionSubTab} onSubTabChange={onIngestionSubTabChange} hasUnresolvedItems={hasUnresolvedItems} />
+      {/* Separator line below workflow tabs */}
+      <div className="h-px w-full" style={{ background: BORDER_GREY }} />
+
+      {isIngestion ? (
+        <>
+          {/* Ingestion bar with blurred background */}
+          <div className="relative w-full bg-gray-100/80 pt-3 backdrop-blur-md backdrop-saturate-150">
+            <IngestionTabPill
+              activeSubTab={ingestionSubTab}
+              onSubTabChange={onIngestionSubTabChange}
+              hasUnresolvedItems={hasUnresolvedItems}
+              openPDFs={openPDFs}
+              activePDF={activePDF}
+              onSelectPDF={onSelectPDF}
+              onClosePDF={onClosePDF}
+            />
+            {/* Edge-to-edge horizontal line at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: BORDER_GREY }} />
+          </div>
+          {/* Spacer */}
+          <div className="h-4" />
+        </>
+      ) : (
+        <>
+          <div className="relative">
+            <div className="flex items-start justify-between px-6 pt-2">
+              <ContextInfoPill stage={activeStage} customer={customer} />
+              <ActionsPillWrapper>
+                <button className="flex h-7 items-center rounded-md px-3 text-[12px] font-semibold text-slate-600 hover:bg-gray-100">
+                  Action
+                </button>
+              </ActionsPillWrapper>
             </div>
           </div>
-        ) : (
-          <div className="absolute left-0 right-0 top-[1px] flex items-start justify-between px-6">
-            <ContextInfoPill stage={activeStage} customer={customer} />
-            <ActionsPillWrapper>
-              <button className="flex h-7 items-center rounded-md px-3 text-[12px] font-semibold text-slate-600 hover:bg-gray-100">
-                Action
-              </button>
-            </ActionsPillWrapper>
-          </div>
-        )}
-      </div>
-
-      {/* Spacer for the hanging pills */}
-      <div className="transition-all duration-300 ease-out" style={{ height: hangingHeight }} />
+          {/* Spacer for the hanging pills */}
+          <div className="transition-all duration-300 ease-out" style={{ height: hangingHeight }} />
+        </>
+      )}
     </div>
   );
 }

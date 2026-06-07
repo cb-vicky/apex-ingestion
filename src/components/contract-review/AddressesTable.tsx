@@ -117,7 +117,7 @@ export function AddressesTable({
 }) {
   const shippingDisplay = sameAsBilling ? billing : shipping;
   const labelClasses =
-    "flex items-start bg-gray-50/80 px-4 py-3 text-[13px] font-medium text-gray-600";
+    "flex items-start bg-gray-100 px-4 py-3 text-[13px] font-medium text-gray-600";
 
   return (
     <div className="w-full overflow-hidden rounded-xl border border-gray-200 bg-white">

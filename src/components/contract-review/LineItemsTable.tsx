@@ -107,13 +107,13 @@ function ItemNameCell({
       className={cn(
         "flex items-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-left text-[13px] font-semibold transition-colors",
         needsMapping
-          ? "text-amber-700 hover:border-amber-200 hover:bg-amber-50"
+          ? "text-red-700 hover:border-red-200 hover:bg-red-50"
           : "text-gray-900 hover:border-gray-200 hover:bg-gray-50",
-        open && (needsMapping ? "border-amber-200 bg-amber-50" : "border-blue-200 bg-blue-50")
+        open && (needsMapping ? "border-red-200 bg-red-50" : "border-blue-200 bg-blue-50")
       )}
     >
       <span>{value}</span>
-      {needsMapping && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />}
+      {needsMapping && <span className="h-1.5 w-1.5 rounded-full bg-red-500" />}
       <ChevronDown size={12} className="shrink-0 text-gray-400" />
     </button>
   );
@@ -285,7 +285,7 @@ export function LineItemsTable({
     <div className="w-full overflow-hidden rounded-xl border border-gray-200 bg-white">
       <div>
         <table className="w-full text-left text-[13px]">
-          <thead className="bg-gray-50/95">
+          <thead className="bg-gray-100">
             <tr className="border-b border-gray-100 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
               <th className="px-4 py-3 font-semibold">Item</th>
               <th className="px-4 py-3 font-semibold">Frequency</th>

@@ -11,7 +11,7 @@ export function ReadyBadge() {
 
 export function NeedsMappingBadge({ count }: { count: number }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold leading-4 text-amber-800">
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-semibold leading-4 text-red-700">
       {count} item{count === 1 ? "" : "s"} need mapping
     </span>
   );

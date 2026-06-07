@@ -8,6 +8,10 @@ import { LineItemsTable } from "./LineItemsTable";
 import { BillingInfoTable } from "./BillingInfoTable";
 import { AddressesTable } from "./AddressesTable";
 
+// Jagged torn-paper clip mask — zigzag along the top and bottom edges.
+const TORN_PAPER_CLIP =
+  "polygon(0% 5%, 5% 0%, 10% 5%, 15% 1%, 20% 5%, 25% 0%, 30% 5%, 35% 1%, 40% 5%, 45% 0%, 50% 5%, 55% 1%, 60% 5%, 65% 0%, 70% 5%, 75% 1%, 80% 5%, 85% 0%, 90% 5%, 95% 1%, 100% 5%, 100% 95%, 95% 100%, 90% 95%, 85% 99%, 80% 95%, 75% 100%, 70% 95%, 65% 99%, 60% 95%, 55% 100%, 50% 95%, 45% 99%, 40% 95%, 35% 100%, 30% 95%, 25% 99%, 20% 95%, 15% 100%, 10% 95%, 5% 99%, 0% 95%)";
+
 function PDFThumbnail({
   type,
   onClick,
@@ -19,144 +23,108 @@ function PDFThumbnail({
     <button
       type="button"
       onClick={onClick}
-      className="group relative h-[88px] w-[88px] shrink-0 cursor-pointer overflow-hidden rounded-xl shadow-sm ring-1 ring-black/5 transition-all hover:shadow-md hover:ring-black/10"
+      className="group relative h-[88px] w-[88px] shrink-0 cursor-pointer overflow-hidden bg-white transition-opacity hover:opacity-95"
+      style={{ clipPath: TORN_PAPER_CLIP, WebkitClipPath: TORN_PAPER_CLIP }}
     >
-      <svg viewBox="0 0 88 88" className="h-full w-full">
-        {/* Paper background with slight texture */}
-        <rect x="0" y="0" width="88" height="88" fill="#fafafa" />
-        <rect x="0" y="0" width="88" height="88" fill="url(#paper-texture)" opacity="0.3" />
-        
-        {/* Define paper texture pattern */}
-        <defs>
-          <pattern id="paper-texture" patternUnits="userSpaceOnUse" width="4" height="4">
-            <rect width="4" height="4" fill="#f5f5f5" />
-            <rect x="0" y="0" width="1" height="1" fill="#ebebeb" />
-          </pattern>
-        </defs>
-
+      {/* Realistic document content */}
+      <div className="absolute inset-x-0 top-[7px] bottom-[7px] overflow-hidden bg-white px-2 py-1">
         {type === "customer" && (
-          <>
-            {/* Logo placeholder */}
-            <rect x="6" y="6" width="18" height="6" rx="1" fill="#1e3a5f" />
-            {/* Header line */}
-            <rect x="6" y="14" width="40" height="2" rx="0.5" fill="#64748b" />
-            {/* Highlighted section */}
-            <rect x="6" y="20" width="76" height="24" rx="2" fill="#fef9c3" />
-            <rect x="8" y="23" width="30" height="2" rx="0.5" fill="#78716c" />
-            <rect x="8" y="27" width="50" height="2.5" rx="0.5" fill="#1e293b" />
-            <rect x="8" y="32" width="45" height="2" rx="0.5" fill="#78716c" />
-            <rect x="8" y="36" width="55" height="2" rx="0.5" fill="#1e293b" />
-            {/* Body text */}
-            <rect x="6" y="48" width="70" height="1.5" rx="0.5" fill="#d1d5db" />
-            <rect x="6" y="52" width="76" height="1.5" rx="0.5" fill="#d1d5db" />
-            <rect x="6" y="56" width="65" height="1.5" rx="0.5" fill="#d1d5db" />
-            <rect x="6" y="60" width="72" height="1.5" rx="0.5" fill="#d1d5db" />
-            <rect x="6" y="64" width="50" height="1.5" rx="0.5" fill="#d1d5db" />
-            {/* Section header */}
-            <rect x="6" y="72" width="25" height="2" rx="0.5" fill="#475569" />
-            <rect x="6" y="77" width="76" height="1.5" rx="0.5" fill="#d1d5db" />
-            <rect x="6" y="81" width="60" height="1.5" rx="0.5" fill="#d1d5db" />
-          </>
+          <div className="scale-[0.32] origin-top-left w-[275px]">
+            <div className="text-[11px] font-bold text-slate-800 mb-1">1. PARTIES</div>
+            <div className="rounded border border-amber-200 bg-amber-50 p-2 text-[9px]">
+              <p className="text-slate-600 leading-tight">
+                This Master Services Agreement ("Agreement") is entered into as of{" "}
+                <span className="font-semibold text-slate-800">July 15, 2026</span> ("Effective Date")
+              </p>
+              <p className="mt-1 text-slate-500">By and between:</p>
+              <p className="mt-1 font-semibold text-slate-800">Zenith Analytics Inc.</p>
+              <p className="text-slate-600">4th Floor, Lattice Tower, MG Road,</p>
+              <p className="text-slate-600">Bengaluru, KA 560001, India</p>
+              <p className="text-slate-400 text-[8px] mt-0.5">(hereinafter referred to as "Client")</p>
+            </div>
+          </div>
         )}
 
         {type === "lineItems" && (
-          <>
-            {/* Section header */}
-            <rect x="6" y="6" width="45" height="3" rx="0.5" fill="#1e3a5f" />
-            <rect x="6" y="11" width="76" height="1.5" rx="0.5" fill="#d1d5db" />
-            {/* Table with highlight */}
-            <rect x="6" y="17" width="76" height="48" rx="2" fill="#fef9c3" />
-            {/* Table header */}
-            <rect x="8" y="19" width="72" height="6" fill="#f8fafc" rx="1" />
-            <rect x="10" y="21" width="24" height="2" rx="0.5" fill="#64748b" />
-            <rect x="38" y="21" width="12" height="2" rx="0.5" fill="#64748b" />
-            <rect x="54" y="21" width="8" height="2" rx="0.5" fill="#64748b" />
-            <rect x="66" y="21" width="12" height="2" rx="0.5" fill="#64748b" />
-            {/* Rows */}
-            <line x1="8" y1="27" x2="80" y2="27" stroke="#e5e7eb" strokeWidth="0.5" />
-            <rect x="10" y="30" width="26" height="2" rx="0.5" fill="#1e293b" />
-            <rect x="40" y="30" width="8" height="2" rx="0.5" fill="#64748b" />
-            <rect x="56" y="30" width="6" height="2" rx="0.5" fill="#64748b" />
-            <rect x="66" y="30" width="12" height="2" rx="0.5" fill="#1e293b" />
-            <line x1="8" y1="35" x2="80" y2="35" stroke="#e5e7eb" strokeWidth="0.5" />
-            <rect x="10" y="38" width="30" height="2" rx="0.5" fill="#1e293b" />
-            <rect x="40" y="38" width="8" height="2" rx="0.5" fill="#64748b" />
-            <rect x="56" y="38" width="6" height="2" rx="0.5" fill="#64748b" />
-            <rect x="66" y="38" width="12" height="2" rx="0.5" fill="#1e293b" />
-            <line x1="8" y1="43" x2="80" y2="43" stroke="#e5e7eb" strokeWidth="0.5" />
-            <rect x="10" y="46" width="22" height="2" rx="0.5" fill="#1e293b" />
-            <rect x="40" y="46" width="8" height="2" rx="0.5" fill="#64748b" />
-            <rect x="56" y="46" width="6" height="2" rx="0.5" fill="#64748b" />
-            <rect x="66" y="46" width="12" height="2" rx="0.5" fill="#1e293b" />
-            {/* Total row */}
-            <rect x="8" y="52" width="72" height="6" fill="#f1f5f9" rx="1" />
-            <rect x="44" y="54" width="16" height="2" rx="0.5" fill="#475569" />
-            <rect x="64" y="54" width="14" height="2" rx="0.5" fill="#1e293b" />
-            {/* Footer text */}
-            <rect x="6" y="70" width="70" height="1.5" rx="0.5" fill="#d1d5db" />
-            <rect x="6" y="74" width="76" height="1.5" rx="0.5" fill="#d1d5db" />
-            <rect x="6" y="78" width="55" height="1.5" rx="0.5" fill="#d1d5db" />
-          </>
+          <div className="scale-[0.32] origin-top-left w-[275px]">
+            <div className="text-[10px] font-bold text-slate-800 mb-1">SCHEDULE A: PRICING</div>
+            <div className="rounded border border-amber-200 bg-amber-50 p-1.5">
+              <table className="w-full text-[8px]">
+                <thead>
+                  <tr className="border-b border-amber-200 text-slate-600">
+                    <th className="text-left py-0.5 font-medium">Item</th>
+                    <th className="text-right py-0.5 font-medium">Qty</th>
+                    <th className="text-right py-0.5 font-medium">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="text-slate-700">
+                  <tr className="border-b border-amber-100">
+                    <td className="py-0.5">Growth CRM License</td>
+                    <td className="text-right">25</td>
+                    <td className="text-right font-medium">$30,000</td>
+                  </tr>
+                  <tr className="border-b border-amber-100">
+                    <td className="py-0.5">Onboarding Services</td>
+                    <td className="text-right">1</td>
+                    <td className="text-right font-medium">$2,500</td>
+                  </tr>
+                  <tr>
+                    <td className="py-0.5">Premium Support</td>
+                    <td className="text-right">1</td>
+                    <td className="text-right font-medium">$4,200</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-amber-300 bg-amber-100/50">
+                    <td colSpan={2} className="py-0.5 text-right font-semibold">Total:</td>
+                    <td className="text-right font-bold text-slate-800">$36,700</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
         )}
 
         {type === "billing" && (
-          <>
-            {/* Header */}
-            <rect x="6" y="6" width="38" height="3" rx="0.5" fill="#1e3a5f" />
-            <rect x="6" y="11" width="76" height="1.5" rx="0.5" fill="#d1d5db" />
-            <rect x="6" y="15" width="65" height="1.5" rx="0.5" fill="#d1d5db" />
-            {/* Section label */}
-            <rect x="6" y="22" width="35" height="2" rx="0.5" fill="#475569" />
-            {/* Highlighted terms box */}
-            <rect x="6" y="27" width="76" height="32" rx="2" fill="#dbeafe" />
-            <rect x="9" y="30" width="20" height="2" rx="0.5" fill="#64748b" />
-            <rect x="32" y="30" width="30" height="2" rx="0.5" fill="#1e293b" />
-            <rect x="9" y="36" width="24" height="2" rx="0.5" fill="#64748b" />
-            <rect x="36" y="36" width="40" height="2" rx="0.5" fill="#1e293b" />
-            <rect x="9" y="42" width="18" height="2" rx="0.5" fill="#64748b" />
-            <rect x="30" y="42" width="22" height="2" rx="0.5" fill="#1e293b" />
-            <rect x="9" y="48" width="26" height="2" rx="0.5" fill="#64748b" />
-            <rect x="38" y="48" width="18" height="2" rx="0.5" fill="#1e293b" />
-            {/* More text */}
-            <rect x="6" y="64" width="30" height="2" rx="0.5" fill="#475569" />
-            <rect x="6" y="69" width="76" height="1.5" rx="0.5" fill="#d1d5db" />
-            <rect x="6" y="73" width="70" height="1.5" rx="0.5" fill="#d1d5db" />
-            <rect x="6" y="77" width="65" height="1.5" rx="0.5" fill="#d1d5db" />
-            <rect x="6" y="81" width="50" height="1.5" rx="0.5" fill="#d1d5db" />
-          </>
+          <div className="scale-[0.32] origin-top-left w-[275px]">
+            <div className="text-[10px] font-bold text-slate-800 mb-1">4. PAYMENT TERMS</div>
+            <div className="rounded border border-blue-200 bg-blue-50 p-2 text-[9px]">
+              <div className="grid grid-cols-2 gap-1">
+                <div>
+                  <p className="text-slate-500 text-[8px]">Contract Term</p>
+                  <p className="font-semibold text-slate-800">12 months</p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-[8px]">Billing Cycle</p>
+                  <p className="font-semibold text-slate-800">Annual</p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-[8px]">Start Date</p>
+                  <p className="font-semibold text-slate-800">July 15, 2026</p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-[8px]">Payment Terms</p>
+                  <p className="font-semibold text-slate-800">Net 30</p>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {type === "addresses" && (
-          <>
-            {/* Header */}
-            <rect x="6" y="6" width="50" height="3" rx="0.5" fill="#1e3a5f" />
-            <rect x="6" y="11" width="76" height="1.5" rx="0.5" fill="#d1d5db" />
-            {/* Section label */}
-            <rect x="6" y="18" width="40" height="2" rx="0.5" fill="#475569" />
-            {/* Highlighted address box */}
-            <rect x="6" y="23" width="76" height="40" rx="2" fill="#dcfce7" />
-            {/* Billing */}
-            <rect x="9" y="26" width="28" height="2" rx="0.5" fill="#64748b" />
-            <rect x="9" y="30" width="45" height="2" rx="0.5" fill="#1e293b" />
-            <rect x="9" y="34" width="35" height="2" rx="0.5" fill="#1e293b" />
-            <rect x="9" y="38" width="40" height="2" rx="0.5" fill="#1e293b" />
-            {/* Shipping */}
-            <rect x="9" y="46" width="30" height="2" rx="0.5" fill="#64748b" />
-            <rect x="9" y="50" width="45" height="2" rx="0.5" fill="#1e293b" />
-            <rect x="9" y="54" width="35" height="2" rx="0.5" fill="#1e293b" />
-            <rect x="9" y="58" width="40" height="2" rx="0.5" fill="#1e293b" />
-            {/* Signature boxes */}
-            <rect x="6" y="68" width="35" height="2" rx="0.5" fill="#475569" />
-            <rect x="6" y="73" width="35" height="10" fill="none" stroke="#d1d5db" strokeWidth="0.5" rx="1" />
-            <rect x="47" y="73" width="35" height="10" fill="none" stroke="#d1d5db" strokeWidth="0.5" rx="1" />
-            <line x1="9" y1="80" x2="38" y2="80" stroke="#d1d5db" strokeWidth="0.5" />
-            <line x1="50" y1="80" x2="79" y2="80" stroke="#d1d5db" strokeWidth="0.5" />
-          </>
+          <div className="scale-[0.32] origin-top-left w-[275px]">
+            <div className="text-[10px] font-bold text-slate-800 mb-1">8. NOTICE PROVISIONS</div>
+            <div className="rounded border border-green-200 bg-green-50 p-2 text-[9px]">
+              <p className="text-slate-500 text-[8px] font-medium mb-0.5">To Client (Billing):</p>
+              <p className="font-semibold text-slate-800">Zenith Analytics Inc.</p>
+              <p className="text-slate-600">4th Floor, Lattice Tower</p>
+              <p className="text-slate-600">MG Road</p>
+              <p className="text-slate-600">Bengaluru, KA 560001</p>
+              <p className="text-slate-600">India</p>
+            </div>
+          </div>
         )}
-      </svg>
-      
-      {/* Subtle hover overlay */}
-      <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/[0.02]" />
+      </div>
     </button>
   );
 }
@@ -692,6 +660,14 @@ export const contractPDFs: SourcePDF[] = [
   { id: "addendum", name: "Addendum-Terms.pdf" },
 ];
 
+type ThumbnailType = "customer" | "lineItems" | "billing" | "addresses";
+
+interface ThumbnailConfig {
+  type: ThumbnailType;
+  label: string;
+  page: number;
+}
+
 function SummarySectionCard({
   id,
   heading,
@@ -700,9 +676,7 @@ function SummarySectionCard({
   children,
   isLast = false,
   hasError = false,
-  thumbnailLabel,
-  thumbnailPage = 1,
-  thumbnailType,
+  thumbnails,
   notes,
   onNotesChange,
   showSourcePDFs = false,
@@ -715,15 +689,13 @@ function SummarySectionCard({
   children: ReactNode;
   isLast?: boolean;
   hasError?: boolean;
-  thumbnailLabel: string;
-  thumbnailPage?: number;
-  thumbnailType: "customer" | "lineItems" | "billing" | "addresses";
+  thumbnails: ThumbnailConfig[];
   notes: Note[];
   onNotesChange: (notes: Note[]) => void;
   showSourcePDFs?: boolean;
   onOpenPDF?: (pdf: SourcePDF) => void;
 }) {
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [activePreview, setActivePreview] = useState<ThumbnailConfig | null>(null);
 
   return (
     <>
@@ -754,25 +726,29 @@ function SummarySectionCard({
                 hasError ? "border-red-400" : "border-gray-400"
               )}
             />
-            {!isLast && (
-              <div
-                className={cn(
-                  "w-px flex-1",
-                  hasError
-                    ? "bg-gradient-to-b from-red-300 to-gray-200"
-                    : "bg-gradient-to-b from-gray-300 to-gray-200"
-                )}
-              />
-            )}
+            <div
+              className={cn(
+                "w-px flex-1",
+                isLast ? "-mb-2" : "-mb-11",
+                hasError
+                  ? "bg-gradient-to-b from-red-400 via-red-300 to-transparent"
+                  : "bg-gradient-to-b from-gray-300 via-gray-300 to-transparent"
+              )}
+            />
           </div>
 
           {/* Thumbnail + Description + Notes */}
           <div className="flex min-w-0 flex-1 flex-col">
-            {/* Thumbnail */}
-            <PDFThumbnail
-              type={thumbnailType}
-              onClick={() => setPreviewOpen(true)}
-            />
+            {/* Thumbnails */}
+            <div className="flex flex-wrap gap-2">
+              {thumbnails.map((thumb, idx) => (
+                <PDFThumbnail
+                  key={idx}
+                  type={thumb.type}
+                  onClick={() => setActivePreview(thumb)}
+                />
+              ))}
+            </div>
 
             {/* Description */}
             <p className="mt-3 text-[13px] leading-relaxed text-gray-600">{description}</p>
@@ -787,11 +763,11 @@ function SummarySectionCard({
       </section>
 
       <PDFPreviewModal
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        label={thumbnailLabel}
-        pageNum={thumbnailPage}
-        type={thumbnailType}
+        open={activePreview !== null}
+        onClose={() => setActivePreview(null)}
+        label={activePreview?.label ?? ""}
+        pageNum={activePreview?.page ?? 1}
+        type={activePreview?.type ?? "customer"}
       />
     </>
   );
@@ -890,9 +866,10 @@ export function SummaryTab({
           heading="Customer Details"
           description="Review and verify the customer account information extracted from the contract."
           ready
-          thumbnailLabel="Customer Information"
-          thumbnailPage={1}
-          thumbnailType="customer"
+          thumbnails={[
+            { type: "customer", label: "Customer Information", page: 1 },
+            { type: "addresses", label: "Notice Provisions", page: 4 },
+          ]}
           notes={customerNotes}
           onNotesChange={setCustomerNotes}
           showSourcePDFs
@@ -902,43 +879,14 @@ export function SummaryTab({
         </SummarySectionCard>
 
         <SummarySectionCard
-          id="line-items"
-          heading="Line Items"
-          description="Review the extracted line items from the contract. Items marked for mapping need to be resolved before proceeding."
-          ready={lineItemsReady}
-          hasError={!lineItemsReady}
-          thumbnailLabel="Pricing Schedule"
-          thumbnailPage={2}
-          thumbnailType="lineItems"
-          notes={lineItemNotes}
-          onNotesChange={setLineItemNotes}
-        >
-          <LineItemsTable items={lineItems} onChange={onLineItemsChange} />
-        </SummarySectionCard>
-
-        <SummarySectionCard
-          id="billing-info"
-          heading="Billing Info"
-          description="Configure billing settings including term, cycle, and payment terms. These values will be applied to the subscription."
-          ready
-          thumbnailLabel="Payment Terms"
-          thumbnailPage={3}
-          thumbnailType="billing"
-          notes={billingNotes}
-          onNotesChange={setBillingNotes}
-        >
-          <BillingInfoTable data={billingInfo} onChange={onBillingInfoChange} />
-        </SummarySectionCard>
-
-        <SummarySectionCard
           id="addresses"
           heading="Addresses"
           description="Verify or update the billing and shipping addresses for this contract."
           ready
-          isLast
-          thumbnailLabel="Address Details"
-          thumbnailPage={4}
-          thumbnailType="addresses"
+          thumbnails={[
+            { type: "addresses", label: "Address Details", page: 4 },
+            { type: "customer", label: "Customer Information", page: 1 },
+          ]}
           notes={addressNotes}
           onNotesChange={setAddressNotes}
         >
@@ -951,6 +899,38 @@ export function SummaryTab({
           onSameAsBillingChange={onSameAsBillingChange}
         />
       </SummarySectionCard>
+
+        <SummarySectionCard
+          id="billing-info"
+          heading="Billing Info"
+          description="Configure billing settings including term, cycle, and payment terms. These values will be applied to the subscription."
+          ready
+          thumbnails={[
+            { type: "billing", label: "Payment Terms", page: 3 },
+          ]}
+          notes={billingNotes}
+          onNotesChange={setBillingNotes}
+        >
+          <BillingInfoTable data={billingInfo} onChange={onBillingInfoChange} />
+        </SummarySectionCard>
+
+        <SummarySectionCard
+          id="line-items"
+          heading="Line Items"
+          description="Review the extracted line items from the contract. Items marked for mapping need to be resolved before proceeding."
+          ready={lineItemsReady}
+          hasError={!lineItemsReady}
+          isLast
+          thumbnails={[
+            { type: "lineItems", label: "Pricing Schedule", page: 2 },
+            { type: "billing", label: "Payment Terms", page: 3 },
+            { type: "customer", label: "Customer Information", page: 1 },
+          ]}
+          notes={lineItemNotes}
+          onNotesChange={setLineItemNotes}
+        >
+          <LineItemsTable items={lineItems} onChange={onLineItemsChange} />
+        </SummarySectionCard>
     </div>
   );
 }

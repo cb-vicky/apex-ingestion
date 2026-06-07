@@ -703,8 +703,8 @@ export function CustomerContextBar({
 
       {isIngestion ? (
         <>
-          {/* Ingestion bar with blurred background */}
-          <div className="relative w-full bg-gray-100/80 pt-3 backdrop-blur-md backdrop-saturate-150">
+          {/* Ingestion bar with blurred background and shadow */}
+          <div className="relative w-full bg-gray-100/80 pt-3 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] backdrop-blur-md backdrop-saturate-150">
             <IngestionTabPill
               activeSubTab={ingestionSubTab}
               onSubTabChange={onIngestionSubTabChange}

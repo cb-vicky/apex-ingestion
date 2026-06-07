@@ -688,7 +688,7 @@ function SummarySectionCard({
     <>
       <section id={id} className="grid grid-cols-[65fr_35fr] gap-6 scroll-mt-4">
         {/* Left: Title + Data table - 65% */}
-        <div className="min-w-0">
+        <div className="min-w-0 pb-4">
           {/* Section title and status */}
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h2 className="font-sans text-[14px] font-bold leading-tight text-gray-900">
@@ -839,7 +839,7 @@ export function SummaryTab({
   const [addressNotes, setAddressNotes] = useState<Note[]>(initialAddressNotes);
 
   return (
-    <div className="flex flex-col gap-8 px-6 py-2">
+    <div className="flex flex-col gap-12 px-6 py-2">
         <SummarySectionCard
           id="customer-details"
           heading="Customer Details"

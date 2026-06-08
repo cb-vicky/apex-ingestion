@@ -30,12 +30,12 @@ const PAGE_BG = "#f3f4f6";
 const TAB_HOVER_BG = "#e9eaed";
 const BORDER_GREY = "#d1d5db";
 
-// Ingestion tab — work-in-progress yellow tint (subtle when elsewhere, strong when active)
-const INGESTION_WIP_SUBTLE_FILL = "#fffbeb";
-const INGESTION_WIP_SUBTLE_HOVER = "#fef3c7";
-const INGESTION_WIP_SUBTLE_STROKE = "#fde68a";
-const INGESTION_WIP_ACTIVE_FILL = "#fbbf24";
-const INGESTION_WIP_ACTIVE_STROKE = "#d97706";
+// Ingestion tab — work-in-progress purple tint (subtle when elsewhere, strong when active)
+const INGESTION_WIP_SUBTLE_FILL = "#faf5ff";
+const INGESTION_WIP_SUBTLE_HOVER = "#f3e8ff";
+const INGESTION_WIP_SUBTLE_STROKE = "#e9d5ff";
+const INGESTION_WIP_ACTIVE_FILL = "#9333ea";
+const INGESTION_WIP_ACTIVE_STROKE = "#7e22ce";
 
 type IngestionWipState = "subtle" | "active";
 
@@ -106,7 +106,7 @@ function TabSVG({
     stroke = INGESTION_WIP_ACTIVE_STROKE;
   } else if (ingestionWip === "subtle") {
     fill = hovered ? INGESTION_WIP_SUBTLE_HOVER : INGESTION_WIP_SUBTLE_FILL;
-    stroke = hovered ? "#fcd34d" : INGESTION_WIP_SUBTLE_STROKE;
+    stroke = hovered ? "#d8b4fe" : INGESTION_WIP_SUBTLE_STROKE;
   } else {
     fill = active ? (collapsed ? "#ffffff" : TAB_BLUE) : hovered ? TAB_HOVER_BG : PAGE_BG;
     stroke = active && !collapsed ? TAB_BLUE_DARK : hovered ? "#9ca3af" : BORDER_GREY;
@@ -221,11 +221,11 @@ function WorkspaceTabButton({
               "w-full whitespace-nowrap text-center font-semibold leading-tight transition-all duration-200",
               collapsed ? "text-[12px]" : "text-[14px]",
               ingestionWip === "active" && collapsed
-                ? "text-amber-700"
+                ? "text-purple-700"
                 : ingestionWip === "active"
-                  ? "text-amber-950"
+                  ? "text-white"
                   : ingestionWip === "subtle"
-                    ? "text-amber-800 group-hover/tab:text-amber-900"
+                    ? "text-purple-800 group-hover/tab:text-purple-900"
                     : active && collapsed
                       ? "text-blue-600"
                       : active

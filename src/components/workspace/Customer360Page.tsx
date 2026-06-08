@@ -103,6 +103,7 @@ export function Customer360Page() {
           onShippingAddressChange={setShippingAddress}
           onSameAsBillingChange={setShippingSameAsBilling}
           onOpenPDF={handleOpenPDF}
+          customerName={zenithContractData.customerName}
         />
       );
     }

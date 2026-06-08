@@ -30,6 +30,15 @@ const PAGE_BG = "#f3f4f6";
 const TAB_HOVER_BG = "#e9eaed";
 const BORDER_GREY = "#d1d5db";
 
+// Ingestion tab — work-in-progress yellow tint (subtle when elsewhere, strong when active)
+const INGESTION_WIP_SUBTLE_FILL = "#fffbeb";
+const INGESTION_WIP_SUBTLE_HOVER = "#fef3c7";
+const INGESTION_WIP_SUBTLE_STROKE = "#fde68a";
+const INGESTION_WIP_ACTIVE_FILL = "#fbbf24";
+const INGESTION_WIP_ACTIVE_STROKE = "#d97706";
+
+type IngestionWipState = "subtle" | "active";
+
 const TAB_OVERLAP_CLASS = "-ml-[22px]"; // negative margin so adjacent tabs overlap
 const TAB_HEIGHT = { expanded: 62, collapsed: 30 } as const;
 const TAB_MIN_WIDTH = 92;
@@ -77,17 +86,32 @@ function TabSVG({
   active,
   hovered,
   collapsed,
+  ingestionWip,
 }: {
   width: number;
   height: number;
   active: boolean;
   hovered?: boolean;
   collapsed?: boolean;
+  ingestionWip?: IngestionWipState;
 }) {
   if (width < 10 || height < 10) return null;
   const path = buildTabPath(width, height);
-  const fill = active ? (collapsed ? "#ffffff" : TAB_BLUE) : hovered ? TAB_HOVER_BG : PAGE_BG;
-  const stroke = active && !collapsed ? TAB_BLUE_DARK : hovered ? "#9ca3af" : BORDER_GREY;
+
+  let fill: string;
+  let stroke: string;
+
+  if (ingestionWip === "active") {
+    fill = collapsed ? INGESTION_WIP_SUBTLE_FILL : INGESTION_WIP_ACTIVE_FILL;
+    stroke = INGESTION_WIP_ACTIVE_STROKE;
+  } else if (ingestionWip === "subtle") {
+    fill = hovered ? INGESTION_WIP_SUBTLE_HOVER : INGESTION_WIP_SUBTLE_FILL;
+    stroke = hovered ? "#fcd34d" : INGESTION_WIP_SUBTLE_STROKE;
+  } else {
+    fill = active ? (collapsed ? "#ffffff" : TAB_BLUE) : hovered ? TAB_HOVER_BG : PAGE_BG;
+    stroke = active && !collapsed ? TAB_BLUE_DARK : hovered ? "#9ca3af" : BORDER_GREY;
+  }
+
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -127,6 +151,7 @@ function WorkspaceTabButton({
   first,
   zIndex,
   disabled,
+  ingestionWip,
   onClick,
 }: {
   label: string;
@@ -135,6 +160,7 @@ function WorkspaceTabButton({
   first: boolean;
   zIndex: number;
   disabled?: boolean;
+  ingestionWip?: IngestionWipState;
   onClick: () => void;
 }) {
   const innerRef = useRef<HTMLDivElement>(null);
@@ -178,7 +204,14 @@ function WorkspaceTabButton({
           active && "cursor-default",
         )}
       >
-        <TabSVG width={size.w} height={size.h} active={active} hovered={hovered && !disabled} collapsed={collapsed} />
+        <TabSVG
+          width={size.w}
+          height={size.h}
+          active={active}
+          hovered={hovered && !disabled}
+          collapsed={collapsed}
+          ingestionWip={ingestionWip}
+        />
         <span
           className="relative z-[2] flex w-full min-w-0 flex-col items-center justify-center overflow-hidden px-6 text-center"
           style={{ minWidth: TAB_MIN_WIDTH }}
@@ -187,11 +220,17 @@ function WorkspaceTabButton({
             className={cn(
               "w-full whitespace-nowrap text-center font-semibold leading-tight transition-all duration-200",
               collapsed ? "text-[12px]" : "text-[14px]",
-              active && collapsed
-                ? "text-blue-600"
-                : active
-                  ? "text-white"
-                  : "text-slate-600 group-hover/tab:text-slate-800",
+              ingestionWip === "active" && collapsed
+                ? "text-amber-700"
+                : ingestionWip === "active"
+                  ? "text-amber-950"
+                  : ingestionWip === "subtle"
+                    ? "text-amber-800 group-hover/tab:text-amber-900"
+                    : active && collapsed
+                      ? "text-blue-600"
+                      : active
+                        ? "text-white"
+                        : "text-slate-600 group-hover/tab:text-slate-800",
             )}
             style={{ fontFamily: "'Sora', 'Inter', sans-serif" }}
           >
@@ -363,7 +402,7 @@ function IngestionTabPill({
                   "relative flex items-center gap-1.5 px-3 pb-2.5 pt-2 font-sora text-[13px] font-semibold transition-all",
                   tab.disabled && "cursor-not-allowed opacity-40",
                   isActive
-                    ? "text-blue-700"
+                    ? "text-[#1e3a5f]"
                     : tab.status === "complete"
                       ? "text-emerald-600 hover:text-emerald-700"
                       : "text-slate-500 hover:text-slate-700",
@@ -373,7 +412,7 @@ function IngestionTabPill({
                   className={cn(
                     "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold",
                     isActive
-                      ? "bg-blue-100 text-blue-600"
+                      ? "bg-[#1e3a5f] text-white"
                       : tab.status === "complete"
                         ? "bg-emerald-100 text-emerald-600"
                         : tab.status === "error"
@@ -386,7 +425,7 @@ function IngestionTabPill({
                 <span>{tab.label}</span>
                 {/* Active indicator - thick underline flush with bottom */}
                 {isActive && (
-                  <span className="absolute bottom-0 left-1 right-1 h-[3px] rounded-t-full bg-blue-600" />
+                  <span className="absolute bottom-0 left-1 right-1 h-[3px] rounded-t-full bg-[#1e3a5f]" />
                 )}
               </button>
             </Fragment>
@@ -672,6 +711,12 @@ export function CustomerContextBar({
         <div className="relative flex w-full min-w-0 items-end justify-center overflow-x-clip overflow-y-visible px-4">
           {workflowTabs.map((tab, idx) => {
             const isActive = activeStage === tab.id;
+            const isIngestionTab = tab.id === "ingestion";
+            const ingestionWip: IngestionWipState | undefined = isIngestionTab
+              ? isActive
+                ? "active"
+                : "subtle"
+              : undefined;
             return (
               <WorkspaceTabButton
                 key={tab.id}
@@ -679,8 +724,9 @@ export function CustomerContextBar({
                 active={isActive}
                 collapsed={collapsed}
                 first={idx === 0}
-                zIndex={isActive ? 50 : 10 - idx}
+                zIndex={isActive ? 50 : isIngestionTab ? 20 - idx : 10 - idx}
                 disabled={tab.disabled}
+                ingestionWip={ingestionWip}
                 onClick={() => onStageChange(tab.id)}
               />
             );

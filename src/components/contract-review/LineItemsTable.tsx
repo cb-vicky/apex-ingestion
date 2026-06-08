@@ -71,7 +71,7 @@ function ItemNameCell({
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const [position, setPosition] = useState({ top: 0, left: 0, openUpward: false });
 
   useEffect(() => {
     if (!open) return;
@@ -92,9 +92,14 @@ function ItemNameCell({
   useEffect(() => {
     if (open && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
+      const dropdownHeight = 300;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUpward = spaceBelow < dropdownHeight && rect.top > spaceBelow;
+
       setPosition({
-        top: rect.bottom + 4,
+        top: openUpward ? rect.top - 6 : rect.bottom + 6,
         left: rect.left,
+        openUpward,
       });
     }
   }, [open]);
@@ -133,7 +138,11 @@ function ItemNameCell({
           <div
             ref={dropdownRef}
             className="fixed z-[9999] max-h-[300px] w-[280px] overflow-auto rounded-xl border border-gray-200 bg-white py-1 shadow-xl"
-            style={{ top: position.top, left: position.left }}
+            style={{
+              top: position.top,
+              left: position.left,
+              transform: position.openUpward ? "translateY(-100%)" : undefined,
+            }}
           >
             {PRODUCT_CATALOG.map((product) => (
               <button
@@ -180,7 +189,7 @@ function EditableCell({
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: 0, left: 0, right: 0 });
+  const [position, setPosition] = useState({ top: 0, left: 0, right: 0, openUpward: false });
 
   useEffect(() => {
     if (!open) return;
@@ -201,10 +210,15 @@ function EditableCell({
   useEffect(() => {
     if (open && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
+      const dropdownHeight = 200;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUpward = spaceBelow < dropdownHeight && rect.top > spaceBelow;
+
       setPosition({
-        top: rect.bottom + 4,
+        top: openUpward ? rect.top - 6 : rect.bottom + 6,
         left: rect.left,
         right: window.innerWidth - rect.right,
+        openUpward,
       });
     }
   }, [open]);
@@ -232,6 +246,7 @@ function EditableCell({
             className="fixed z-[9999] min-w-[100px] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
             style={{
               top: position.top,
+              transform: position.openUpward ? "translateY(-100%)" : undefined,
               ...(align === "right" ? { right: position.right } : { left: position.left }),
             }}
           >
@@ -282,8 +297,8 @@ export function LineItemsTable({
   };
 
   return (
-    <div className="w-full overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <div>
+    <div className="w-full overflow-visible rounded-xl border border-gray-200 bg-white pb-2">
+      <div className="overflow-visible">
         <table className="w-full text-left text-[13px]">
           <thead className="bg-gray-100">
             <tr className="border-b border-gray-100 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
@@ -297,21 +312,21 @@ export function LineItemsTable({
           <tbody className="divide-y divide-gray-100">
             {items.map((item) => (
               <tr key={item.id} className="group">
-                <td className="px-2 py-2">
+                <td className="px-2 py-2.5">
                   <ItemNameCell
                     value={item.name}
                     needsMapping={item.mappingStatus === "needs_mapping"}
                     onChange={(name) => handleItemChange(item.id, "name", name)}
                   />
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-2.5">
                   <EditableCell
                     value={item.frequency}
                     options={FREQUENCY_OPTIONS}
                     onChange={(val) => handleItemChange(item.id, "frequency", val)}
                   />
                 </td>
-                <td className="px-2 py-2 text-right">
+                <td className="px-2 py-2.5 text-right">
                   <EditableCell
                     value={item.quantity}
                     options={QUANTITY_OPTIONS}

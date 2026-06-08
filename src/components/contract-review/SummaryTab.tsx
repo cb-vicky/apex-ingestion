@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from "react";
-import { Check, ExternalLink, Pin, Plus, X } from "lucide-react";
+import { Check, ChevronRight, ExternalLink, Pin, Plus, Sparkles, X } from "lucide-react";
 import type { Address, BillingInfo, CustomerDetails, LineItem } from "@/data/mock-contracts";
 import { cn } from "@/lib/utils";
 import { ReadyBadge, NeedsMappingBadge } from "./StatusBadges";
@@ -628,14 +628,27 @@ export interface SourcePDF {
   name: string;
 }
 
-function SourcePDFStrip({ files, onOpenPDF }: { files: SourcePDF[]; onOpenPDF?: (pdf: SourcePDF) => void }) {
+function SourcePDFStrip({
+  files,
+  onOpenPDF,
+  className,
+}: {
+  files: SourcePDF[];
+  onOpenPDF?: (pdf: SourcePDF) => void;
+  className?: string;
+}) {
   const truncateName = (name: string, maxLen = 10) => {
     if (name.length <= maxLen) return name;
     return name.slice(0, maxLen) + "…";
   };
 
   return (
-    <div className="mb-3 flex items-center justify-between rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-1.5">
+    <div
+      className={cn(
+        "flex items-center justify-between rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-1.5",
+        className ?? "mb-3"
+      )}
+    >
       <span className="shrink-0 text-[11px] font-medium text-gray-500">Contract PDFs</span>
       <div className="flex items-center gap-3">
         {files.map((file) => (
@@ -660,6 +673,197 @@ export const contractPDFs: SourcePDF[] = [
   { id: "addendum", name: "Addendum-Terms.pdf" },
 ];
 
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+interface SectionStatus {
+  id: string;
+  label: string;
+  ready: boolean;
+  errorCount?: number;
+}
+
+function SectionStatusRow({ section }: { section: SectionStatus }) {
+  return (
+    <button
+      type="button"
+      onClick={() => scrollToSection(section.id)}
+      className="group flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="text-[13px] font-medium text-gray-900">{section.label}</span>
+        <ChevronRight
+          size={14}
+          className="shrink-0 text-gray-300 transition-colors group-hover:text-gray-500"
+        />
+      </div>
+      {section.ready ? (
+        <ReadyBadge />
+      ) : (
+        <NeedsMappingBadge count={section.errorCount ?? 1} />
+      )}
+    </button>
+  );
+}
+
+function AINoteItem({
+  content,
+  targetSectionId,
+}: {
+  content: string;
+  targetSectionId: string;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={() => scrollToSection(targetSectionId)}
+      className="group relative flex min-w-0 w-full items-start gap-2 rounded-md border border-red-200 bg-red-50/50 px-2.5 py-2 text-left transition-all hover:border-red-300 hover:bg-red-50"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+        <Sparkles size={11} />
+      </div>
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <div className="flex items-center gap-1.5">
+          <span className="truncate text-[11px] font-medium text-red-700">Apex AI</span>
+        </div>
+        <p
+          className={cn(
+            "mt-0.5 text-[12px] leading-relaxed text-red-700 transition-all",
+            isHovered ? "whitespace-normal break-words" : "truncate"
+          )}
+        >
+          {content}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+function OverviewSection({
+  customerName,
+  lineItems,
+  unmappedCount,
+  onOpenPDF,
+}: {
+  customerName: string;
+  lineItems: LineItem[];
+  unmappedCount: number;
+  onOpenPDF?: (pdf: SourcePDF) => void;
+}) {
+  const lineItemsReady = unmappedCount === 0;
+  const hasErrors = !lineItemsReady;
+  const readyCount = 3 + (lineItemsReady ? 1 : 0);
+
+  const sectionStatuses: SectionStatus[] = [
+    { id: "customer-details", label: "Customer Details", ready: true },
+    { id: "addresses", label: "Addresses", ready: true },
+    { id: "billing-info", label: "Billing Info", ready: true },
+    { id: "line-items", label: "Line Items", ready: lineItemsReady, errorCount: unmappedCount },
+  ];
+
+  const unmappedItems = lineItems.filter((i) => i.mappingStatus === "needs_mapping");
+  const totalValue = lineItems.reduce((sum, i) => sum + i.totalPrice, 0);
+
+  const aiErrorNote =
+    unmappedCount > 0
+      ? `Found ${unmappedCount} unresolved mapping${unmappedCount === 1 ? "" : "s"} in Line Items. "${unmappedItems.map((i) => i.name).join('", "')}" could not be matched to the product catalog. Review and map before approval.`
+      : null;
+
+  const errorSectionId = sectionStatuses.find((s) => !s.ready)?.id ?? "line-items";
+
+  const overviewThumbnails: ThumbnailConfig[] = [
+    { type: "customer", label: "Customer Information", page: 1 },
+    { type: "lineItems", label: "Pricing Schedule", page: 2 },
+    { type: "billing", label: "Payment Terms", page: 3 },
+  ];
+
+  const [activePreview, setActivePreview] = useState<ThumbnailConfig | null>(null);
+
+  return (
+    <>
+      <section id="overview" className="grid grid-cols-[65fr_35fr] gap-6 scroll-mt-4">
+        <div className="min-w-0 pb-4">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <h2 className="font-sans text-[14px] font-bold leading-tight text-gray-900">Overview</h2>
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-semibold leading-4 text-violet-700">
+              <Sparkles size={11} className="shrink-0 text-violet-500" />
+              Summary
+            </span>
+          </div>
+
+          <p className="mb-4 text-[13px] leading-relaxed text-gray-700">
+            12-month MSA with <span className="font-semibold text-gray-900">{customerName}</span>{" "}
+            covering {lineItems.length} line items — Growth CRM ({lineItems.find((i) => i.name.includes("CRM"))?.quantity ?? 25} seats), onboarding services, and premium support.
+            Total contract value:{" "}
+            <span className="font-semibold text-gray-900">
+              ${totalValue.toLocaleString("en-US")}/yr
+            </span>
+            . {readyCount} of 4 sections are ready for approval.
+          </p>
+
+          <div className="mb-4 overflow-hidden rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
+            {sectionStatuses.map((section) => (
+              <SectionStatusRow key={section.id} section={section} />
+            ))}
+          </div>
+
+          <SourcePDFStrip files={contractPDFs} onOpenPDF={onOpenPDF} className="mb-0" />
+        </div>
+
+        <div className="flex min-w-0 gap-4">
+          <div className="flex flex-col items-center self-stretch">
+            <div
+              className={cn(
+                "mt-1 h-2.5 w-2.5 shrink-0 rounded-full border-2 bg-white",
+                hasErrors ? "border-red-400" : "border-gray-400"
+              )}
+            />
+            <div
+              className={cn(
+                "w-px flex-1 -mb-11",
+                hasErrors
+                  ? "bg-gradient-to-b from-red-400 via-red-300 to-transparent"
+                  : "bg-gradient-to-b from-gray-300 via-gray-300 to-transparent"
+              )}
+            />
+          </div>
+
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex flex-wrap gap-2">
+              {overviewThumbnails.map((thumb, idx) => (
+                <PDFThumbnail key={idx} type={thumb.type} onClick={() => setActivePreview(thumb)} />
+              ))}
+            </div>
+
+            <p className="mt-3 text-[13px] leading-relaxed text-gray-600">
+              Apex AI reviewed all extracted sections from the contract PDFs. Most fields match the source document and are ready for approval. Click a section on the left to jump directly to its review area.
+            </p>
+
+            {aiErrorNote && (
+              <div className="mt-3">
+                <AINoteItem content={aiErrorNote} targetSectionId={errorSectionId} />
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <PDFPreviewModal
+        open={activePreview !== null}
+        onClose={() => setActivePreview(null)}
+        label={activePreview?.label ?? ""}
+        pageNum={activePreview?.page ?? 1}
+        type={activePreview?.type ?? "customer"}
+      />
+    </>
+  );
+}
+
 type ThumbnailType = "customer" | "lineItems" | "billing" | "addresses";
 
 interface ThumbnailConfig {
@@ -679,8 +883,6 @@ function SummarySectionCard({
   thumbnails,
   notes,
   onNotesChange,
-  showSourcePDFs = false,
-  onOpenPDF,
 }: {
   id: string;
   heading: string;
@@ -692,16 +894,14 @@ function SummarySectionCard({
   thumbnails: ThumbnailConfig[];
   notes: Note[];
   onNotesChange: (notes: Note[]) => void;
-  showSourcePDFs?: boolean;
-  onOpenPDF?: (pdf: SourcePDF) => void;
 }) {
   const [activePreview, setActivePreview] = useState<ThumbnailConfig | null>(null);
 
   return (
     <>
-      <section id={id} className="grid grid-cols-[65fr_35fr] gap-6 scroll-mt-4">
+      <section id={id} className={cn("grid grid-cols-[65fr_35fr] gap-6 scroll-mt-4", isLast && "pb-2")}>
         {/* Left: Title + Data table - 65% */}
-        <div className="min-w-0 pb-4">
+        <div className={cn("min-w-0", isLast ? "pb-6" : "pb-4")}>
           {/* Section title and status */}
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h2 className="font-sans text-[14px] font-bold leading-tight text-gray-900">
@@ -710,9 +910,6 @@ function SummarySectionCard({
             {ready && <ReadyBadge />}
             {hasError && <NeedsMappingBadge count={1} />}
           </div>
-          {/* Source PDFs strip */}
-          {showSourcePDFs && <SourcePDFStrip files={contractPDFs} onOpenPDF={onOpenPDF} />}
-          {/* Table content */}
           {children}
         </div>
 
@@ -729,7 +926,7 @@ function SummarySectionCard({
             <div
               className={cn(
                 "w-px flex-1",
-                isLast ? "-mb-2" : "-mb-11",
+                isLast ? "mb-0" : "-mb-11",
                 hasError
                   ? "bg-gradient-to-b from-red-400 via-red-300 to-transparent"
                   : "bg-gradient-to-b from-gray-300 via-gray-300 to-transparent"
@@ -761,6 +958,10 @@ function SummarySectionCard({
           </div>
         </div>
       </section>
+
+      {isLast && (
+        <div className="mt-2 border-b border-dotted border-gray-300 pb-20" aria-hidden="true" />
+      )}
 
       <PDFPreviewModal
         open={activePreview !== null}
@@ -835,6 +1036,7 @@ export function SummaryTab({
   onShippingAddressChange,
   onSameAsBillingChange,
   onOpenPDF,
+  customerName,
 }: {
   customerDetails: CustomerDetails;
   lineItems: LineItem[];
@@ -849,6 +1051,7 @@ export function SummaryTab({
   onShippingAddressChange: (addr: Address) => void;
   onSameAsBillingChange: (same: boolean) => void;
   onOpenPDF?: (pdf: SourcePDF) => void;
+  customerName?: string;
 }) {
   const unmappedCount = lineItems.filter((i) => i.mappingStatus === "needs_mapping").length;
   const lineItemsReady = unmappedCount === 0;
@@ -860,7 +1063,14 @@ export function SummaryTab({
   const [addressNotes, setAddressNotes] = useState<Note[]>(initialAddressNotes);
 
   return (
-    <div className="flex flex-col gap-12 px-6 py-2">
+    <div className="flex flex-col gap-10 px-6 py-2">
+        <OverviewSection
+          customerName={customerName ?? customerDetails.accountName}
+          lineItems={lineItems}
+          unmappedCount={unmappedCount}
+          onOpenPDF={onOpenPDF}
+        />
+
         <SummarySectionCard
           id="customer-details"
           heading="Customer Details"
@@ -872,8 +1082,6 @@ export function SummaryTab({
           ]}
           notes={customerNotes}
           onNotesChange={setCustomerNotes}
-          showSourcePDFs
-          onOpenPDF={onOpenPDF}
         >
           <CustomerDetailsTable data={customerDetails} onChange={onCustomerDetailsChange} />
         </SummarySectionCard>

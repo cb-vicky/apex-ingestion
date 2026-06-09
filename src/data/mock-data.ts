@@ -83,7 +83,6 @@ export interface PriorityChip {
 
 export const priorityChips: PriorityChip[] = [
   { label: "New deal ingestion", severity: "amber" },
-  { label: "Renewal in 30d", severity: "red" },
 ];
 
 // ─── Contract-ingestion sub-tab strip ────────────────────────────────────────
@@ -114,8 +113,8 @@ export interface IngestionSubTab {
  * Status drives the numbered badge: complete → ✓, error → !, else step number.
  */
 export const ingestionSubTabs: IngestionSubTab[] = [
-  { id: "review-schedule", label: "Review Schedule", status: "active" },
-  { id: "preview-invoice", label: "Preview Invoice", status: "pending" },
+  { id: "review-schedule", label: "Schedule", status: "active" },
+  { id: "preview-invoice", label: "Invoice", status: "pending" },
 ];
 
 /** Sub-tab active on load. */
@@ -123,28 +122,54 @@ export const initialIngestionSubTab = "review-schedule";
 
 // ─── Left product-nav items ──────────────────────────────────────────────────
 export interface NavItem {
+  id: string;
   label: string;
-  /** lucide-react icon name (resolved in Sidebar.tsx) */
+  /** Shorter label for the top nav bar */
+  shortLabel?: string;
+  /** lucide-react icon name (resolved in TopNav / Sidebar) */
   icon: string;
   active?: boolean;
   disabled?: boolean;
 }
 
+/** Default visible items in the top nav (rest go in More). */
+export const primaryNavIds = [
+  "workbench",
+  "customers",
+  "quotes",
+  "contracts",
+  "collections",
+  "revrec",
+] as const;
+
+/** Curated items shown in the top-nav More menu. */
+export const moreNavIds = [
+  "prospects",
+  "invoices",
+  "credit-notes",
+  "product-catalog",
+  "entitlements",
+  "features",
+  "usages",
+  "revenue-story",
+] as const;
+
 export const navItems: NavItem[] = [
-  { label: "My Workbench", icon: "Home" },
-  { label: "Customers", icon: "Users", active: true },
-  { label: "Prospects", icon: "UserPlus" },
-  { label: "Quotes", icon: "File" },
-  { label: "Contracts", icon: "FileSignature" },
-  { label: "Invoices", icon: "Receipt" },
-  { label: "Credit notes", icon: "MinusCircle", disabled: true },
-  { label: "Collections", icon: "Coins" },
-  { label: "RevRec", icon: "ChartLine" },
-  { label: "Communications", icon: "Mail" },
-  { label: "Tasks", icon: "List" },
-  { label: "Product Catalog", icon: "Tag", disabled: true },
-  { label: "Entitlements", icon: "Shield", disabled: true },
-  { label: "Usages", icon: "Activity", disabled: true },
-  { label: "RevenueStory", icon: "BarChart3", disabled: true },
-  { label: "Signals", icon: "Zap", disabled: true },
+  { id: "workbench", label: "My Workbench", shortLabel: "Workbench", icon: "Home" },
+  { id: "customers", label: "Customers", icon: "Users", active: true },
+  { id: "prospects", label: "Prospects", icon: "UserPlus" },
+  { id: "quotes", label: "Quotes", icon: "File" },
+  { id: "contracts", label: "Contracts", icon: "FileSignature" },
+  { id: "invoices", label: "Invoices", icon: "Receipt" },
+  { id: "credit-notes", label: "Credit notes", icon: "MinusCircle" },
+  { id: "collections", label: "Collections", icon: "Coins" },
+  { id: "revrec", label: "RevRec", icon: "ChartLine" },
+  { id: "communications", label: "Communications", icon: "Mail" },
+  { id: "tasks", label: "Tasks", icon: "List" },
+  { id: "product-catalog", label: "Catalog", icon: "Tag" },
+  { id: "entitlements", label: "Entitlements", icon: "Shield" },
+  { id: "features", label: "Features", icon: "Zap" },
+  { id: "usages", label: "Usages", icon: "Activity" },
+  { id: "revenue-story", label: "Revenue story", icon: "BarChart3" },
+  { id: "signals", label: "Signals", icon: "Zap", disabled: true },
 ];

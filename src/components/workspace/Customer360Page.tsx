@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { SummaryTab, type SourcePDF } from "@/components/contract-review/SummaryTab";
 import { InvoicePreviewTab } from "@/components/contract-review/InvoicePreviewTab";
-import { ContractPDFViewer } from "@/components/contract-review/ContractPDFViewer";
+import { openPDFInNewWindow } from "@/lib/open-pdf";
 
 function PlaceholderContent({ stage }: { stage: StageId }) {
   const stageLabel = workflowTabs.find((t) => t.id === stage)?.label ?? stage;
@@ -51,8 +51,6 @@ function PlaceholderContent({ stage }: { stage: StageId }) {
 export function Customer360Page() {
   const [activeStage, setActiveStage] = useState<StageId>(initialStage);
   const [ingestionSubTab, setIngestionSubTab] = useState<string>(initialIngestionSubTab);
-  const collapsed = true;
-
   const [customerDetails, setCustomerDetails] = useState<CustomerDetails>(zenithContractData.customerDetails);
   const [lineItems, setLineItems] = useState<LineItem[]>(zenithContractData.lineItems);
   const [billingInfo, setBillingInfo] = useState<BillingInfo>(zenithContractData.billingInfo);
@@ -60,30 +58,10 @@ export function Customer360Page() {
   const [shippingAddress, setShippingAddress] = useState<Address>(zenithContractData.shippingAddress);
   const [shippingSameAsBilling, setShippingSameAsBilling] = useState(zenithContractData.shippingSameAsBilling);
 
-  // Open PDF tabs state
-  const [openPDFs, setOpenPDFs] = useState<SourcePDF[]>([]);
-  const [activePDF, setActivePDF] = useState<SourcePDF | null>(null);
-
   const isIngestion = activeStage === "ingestion";
 
   const handleOpenPDF = (pdf: SourcePDF) => {
-    // Check if already open
-    if (!openPDFs.some((p) => p.id === pdf.id)) {
-      setOpenPDFs([...openPDFs, pdf]);
-    }
-    setActivePDF(pdf);
-  };
-
-  const handleClosePDF = (pdfId: string) => {
-    const newOpenPDFs = openPDFs.filter((p) => p.id !== pdfId);
-    setOpenPDFs(newOpenPDFs);
-    if (activePDF?.id === pdfId) {
-      setActivePDF(null);
-    }
-  };
-
-  const handleSelectPDF = (pdf: SourcePDF | null) => {
-    setActivePDF(pdf);
+    openPDFInNewWindow(pdf);
   };
 
   const renderIngestionContent = () => {
@@ -125,15 +103,11 @@ export function Customer360Page() {
   };
 
   const renderContent = () => {
-    if (activePDF) {
-      return <ContractPDFViewer pdf={activePDF} />;
-    }
-
     return (
       <div
         className={cn(
           "min-w-0 pb-12 pt-2",
-          isIngestion ? "px-6 lg:px-10" : "mx-auto grid max-w-[860px] px-6",
+          isIngestion ? "px-6" : "mx-auto grid max-w-[860px] px-6",
         )}
       >
         {isIngestion ? renderIngestionContent() : <PlaceholderContent stage={activeStage} />}
@@ -149,17 +123,9 @@ export function Customer360Page() {
         customer={customer}
         activeStage={activeStage}
         onStageChange={setActiveStage}
-        collapsed={collapsed}
         ingestionSubTab={ingestionSubTab}
-        onIngestionSubTabChange={(id) => {
-          setIngestionSubTab(id);
-          setActivePDF(null); // Go back to main content when changing sub-tabs
-        }}
+        onIngestionSubTabChange={setIngestionSubTab}
         hasUnresolvedItems={hasUnresolvedItems}
-        openPDFs={openPDFs}
-        activePDF={activePDF}
-        onSelectPDF={handleSelectPDF}
-        onClosePDF={handleClosePDF}
       />
 
       <div className="relative flex-1 overflow-auto">

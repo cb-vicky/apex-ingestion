@@ -1,14 +1,14 @@
 import {
-  Fragment,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
-import { ChevronDown, ChevronRight, FileText, MoreHorizontal, RotateCcw, Trash2, X } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronRight, FileText, MoreHorizontal, RotateCcw, Trash2 } from "lucide-react";
+import { contractPDFs } from "@/components/contract-review/SummaryTab";
+import { openPDFInNewWindow } from "@/lib/open-pdf";
 import {
-  breadcrumbs,
   ingestionSubTabs,
   priorityChips,
   workflowTabs,
@@ -17,7 +17,6 @@ import {
   type StageId,
 } from "@/data/mock-data";
 import { cn, formatCompactCurrency, formatShortDate } from "@/lib/utils";
-import type { SourcePDF } from "@/components/contract-review/SummaryTab";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Trapezoidal tab shape constants — narrower top, wider bottom (file-folder look)
@@ -39,15 +38,14 @@ const INGESTION_WIP_ACTIVE_STROKE = "#7e22ce";
 
 type IngestionWipState = "subtle" | "active";
 
-const TAB_OVERLAP_CLASS = "-ml-[22px]"; // negative margin so adjacent tabs overlap
+const TAB_OVERLAP_CLASS = "-ml-[8px]"; // small negative margin for minimal tab overlap
 const TAB_HEIGHT = { expanded: 62, collapsed: 30 } as const;
-const TAB_MIN_WIDTH = 92;
+const TAB_MIN_WIDTH = 110;
 
 // Inverted pill (hangs below the tab line — wider top, narrower bottom)
 const PILL_INSET = 10;
 const PILL_R = 8;
 const CONTEXT_PILL_HEIGHT = 34;
-const INGESTION_BAR_HEIGHT = 56;
 const HEADER_TABS_GAP = { expanded: 12, collapsed: 10 } as const;
 
 /** Trapezoid path — OPEN (no Z) so the bottom edge isn't stroked. */
@@ -103,7 +101,7 @@ function TabSVG({
 
   if (ingestionWip === "active") {
     fill = collapsed ? INGESTION_WIP_SUBTLE_FILL : INGESTION_WIP_ACTIVE_FILL;
-    stroke = INGESTION_WIP_ACTIVE_STROKE;
+    stroke = collapsed ? INGESTION_WIP_SUBTLE_STROKE : INGESTION_WIP_ACTIVE_STROKE;
   } else if (ingestionWip === "subtle") {
     fill = hovered ? INGESTION_WIP_SUBTLE_HOVER : INGESTION_WIP_SUBTLE_FILL;
     stroke = hovered ? "#d8b4fe" : INGESTION_WIP_SUBTLE_STROKE;
@@ -242,62 +240,16 @@ function WorkspaceTabButton({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Header sub-components
-// ─────────────────────────────────────────────────────────────────────────────
-function Breadcrumbs({ collapsed }: { collapsed: boolean }) {
-  return (
-    <nav
-      className={cn(
-        "flex w-full min-w-0 items-center gap-1 whitespace-nowrap leading-none text-text-muted transition-all duration-300 ease-out",
-        collapsed ? "text-[11px]" : "text-[13px]",
-      )}
-    >
-      {breadcrumbs.map((crumb, idx) => {
-        const isLast = idx === breadcrumbs.length - 1;
-        return (
-          <span key={`${crumb.label}-${idx}`} className="inline-flex items-center gap-1">
-            {idx > 0 && <ChevronRight size={collapsed ? 10 : 12} className="text-text-muted/50" />}
-            {crumb.href && !isLast ? (
-              <a href={crumb.href} className="text-text-secondary underline-offset-2 transition-colors hover:text-text-primary hover:underline">
-                {crumb.label}
-              </a>
-            ) : (
-              <span className={cn("font-medium", isLast ? "text-text-primary" : "text-text-secondary")}>{crumb.label}</span>
-            )}
-          </span>
-        );
-      })}
-    </nav>
-  );
-}
-
-function CustomerTeamMeta({ customer, collapsed }: { customer: Customer; collapsed: boolean }) {
-  return (
-    <p
-      className={cn(
-        "shrink-0 whitespace-nowrap text-[12px] text-text-muted transition-all duration-300 ease-out",
-        collapsed && "pointer-events-none opacity-0",
-      )}
-    >
-      AE: {customer.ae}&ensp;·&ensp;CSM: {customer.csm}&ensp;·&ensp;Billing: {customer.billingOwner}
-    </p>
-  );
-}
-
 const PRIORITY_CHIP_TONE: Record<"red" | "amber", string> = {
   red: "border-red-200/90 bg-red-50 text-red-800",
   amber: "border-amber-200/90 bg-amber-50 text-amber-900",
 };
 
-function CustomerPriorityChips({ collapsed }: { collapsed: boolean }) {
+function CustomerPriorityChips() {
   if (priorityChips.length === 0) return null;
   return (
     <div
-      className={cn(
-        "flex max-w-[58%] shrink-0 flex-wrap items-center justify-end gap-1.5 transition-all duration-300 ease-out",
-        collapsed && "pointer-events-none opacity-0",
-      )}
+      className="flex shrink-0 flex-wrap items-center justify-end gap-1.5"
       aria-label="Customer priority signals"
     >
       {priorityChips.map((chip) => (
@@ -333,27 +285,115 @@ const CONTRACT_STATUSES: { id: ContractStatus; label: string; color: string; bgC
   { id: "needs-clarification", label: "Needs Clarification", color: "text-purple-700", bgColor: "bg-purple-50", borderColor: "border-purple-200" },
 ];
 
+function ViewPDFDropdown() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="View contract PDFs"
+        className="flex h-7 items-center gap-0.5 text-gray-500 transition-colors hover:text-gray-800"
+      >
+        <FileText size={15} strokeWidth={2} />
+        <ChevronDown size={12} className={cn("transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+          {contractPDFs.map((pdf) => (
+            <button
+              key={pdf.id}
+              type="button"
+              onClick={() => {
+                openPDFInNewWindow(pdf);
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <FileText size={13} className="shrink-0 text-gray-400" />
+              <span className="truncate">{pdf.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IngestionSegmentedControl({
+  activeSubTab,
+  onSubTabChange,
+}: {
+  activeSubTab: string;
+  onSubTabChange: (id: string) => void;
+}) {
+  const tabs = ingestionSubTabs;
+
+  return (
+    <div className="relative inline-flex">
+      <div className="flex items-center rounded-lg border border-gray-300 bg-gray-100 p-1">
+        {tabs.map((tab, idx) => {
+          const isActive = activeSubTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => !tab.disabled && onSubTabChange(tab.id)}
+              disabled={tab.disabled}
+              className={cn(
+                "relative flex items-center gap-1.5 rounded-md px-3 py-1 font-sora text-[12px] transition-all",
+                tab.disabled && "cursor-not-allowed opacity-40",
+                isActive
+                  ? "bg-blue-600 font-bold text-white shadow-md"
+                  : "font-semibold text-slate-600 hover:bg-gray-200 hover:text-slate-800",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold",
+                  isActive
+                    ? "bg-white text-blue-600"
+                    : tab.status === "complete"
+                      ? "bg-emerald-500 text-white"
+                      : tab.status === "error"
+                        ? "bg-red-500 text-white"
+                        : "bg-gray-400 text-white",
+                )}
+              >
+                {stepBadge(tab.status, idx)}
+              </span>
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function IngestionTabPill({
   activeSubTab,
   onSubTabChange,
   hasUnresolvedItems = false,
-  openPDFs = [],
-  activePDF,
-  onSelectPDF,
-  onClosePDF,
 }: {
   activeSubTab: string;
   onSubTabChange: (id: string) => void;
   hasUnresolvedItems?: boolean;
-  openPDFs?: SourcePDF[];
-  activePDF?: SourcePDF | null;
-  onSelectPDF?: (pdf: SourcePDF | null) => void;
-  onClosePDF?: (pdfId: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<ContractStatus>("in-review");
-  const [hoveredPDF, setHoveredPDF] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const statusMenuRef = useRef<HTMLDivElement>(null);
   const isPreviewInvoice = activeSubTab === "preview-invoice";
@@ -373,123 +413,29 @@ function IngestionTabPill({
     if (!isPreviewInvoice) onSubTabChange("preview-invoice");
   };
 
-  const truncateName = (name: string, maxLen = 12) => {
-    if (name.length <= maxLen) return name;
-    return name.slice(0, maxLen) + "…";
-  };
-
-  const isMainContentActive = !activePDF;
-
   return (
-    <div className="flex items-end justify-between px-6">
-      {/* Left: sequential flow tabs + PDF tabs */}
-      <div className="flex shrink-0 items-end">
-        {/* Main ingestion tabs */}
-        {ingestionSubTabs.map((tab, idx) => {
-          const isActive = isMainContentActive && activeSubTab === tab.id;
-          return (
-            <Fragment key={tab.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!tab.disabled) {
-                    onSubTabChange(tab.id);
-                    onSelectPDF?.(null);
-                  }
-                }}
-                disabled={tab.disabled}
-                className={cn(
-                  "relative flex items-center gap-1.5 px-3 pb-2.5 pt-2 font-sora text-[13px] font-semibold transition-all",
-                  tab.disabled && "cursor-not-allowed opacity-40",
-                  isActive
-                    ? "text-[#1e3a5f]"
-                    : tab.status === "complete"
-                      ? "text-emerald-600 hover:text-emerald-700"
-                      : "text-slate-500 hover:text-slate-700",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold",
-                    isActive
-                      ? "bg-[#1e3a5f] text-white"
-                      : tab.status === "complete"
-                        ? "bg-emerald-100 text-emerald-600"
-                        : tab.status === "error"
-                          ? "bg-red-100 text-red-600"
-                          : "bg-gray-200 text-gray-500",
-                  )}
-                >
-                  {stepBadge(tab.status, idx)}
-                </span>
-                <span>{tab.label}</span>
-                {/* Active indicator - thick underline flush with bottom */}
-                {isActive && (
-                  <span className="absolute bottom-0 left-1 right-1 h-[3px] rounded-t-full bg-[#1e3a5f]" />
-                )}
-              </button>
-            </Fragment>
-          );
-        })}
-
-        {/* PDF tabs */}
-        {openPDFs.map((pdf) => {
-          const isActive = activePDF?.id === pdf.id;
-          const isHovered = hoveredPDF === pdf.id;
-          return (
-            <button
-              key={pdf.id}
-              type="button"
-              onClick={() => onSelectPDF?.(pdf)}
-              onMouseEnter={() => setHoveredPDF(pdf.id)}
-              onMouseLeave={() => setHoveredPDF(null)}
-              className={cn(
-                "relative flex items-center gap-1.5 px-3 pb-2.5 pt-2 font-sora text-[13px] font-semibold transition-all",
-                isActive ? "text-blue-700" : "text-slate-500 hover:text-slate-700",
-              )}
-            >
-              <FileText size={14} className={isActive ? "text-blue-600" : "text-slate-400"} />
-              <span>{truncateName(pdf.name)}</span>
-              {/* Close button - only show on hover */}
-              {isHovered && (
-                <span
-                  role="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onClosePDF?.(pdf.id);
-                  }}
-                  className="ml-0.5 flex h-4 w-4 items-center justify-center rounded text-slate-400 hover:bg-gray-200 hover:text-slate-600"
-                >
-                  <X size={12} />
-                </span>
-              )}
-              {/* Active indicator */}
-              {isActive && (
-                <span className="absolute bottom-0 left-1 right-1 h-[3px] rounded-t-full bg-blue-600" />
-              )}
-            </button>
-          );
-        })}
+    <div className="flex items-center justify-between gap-4 py-1.5 pl-6 pr-6">
+      <div className="flex min-w-0 items-center gap-2">
+        <ViewPDFDropdown />
+        <IngestionSegmentedControl activeSubTab={activeSubTab} onSubTabChange={onSubTabChange} />
       </div>
 
-      {/* Right: status + action area - no housing */}
-      <div className="flex items-end gap-3">
-        {/* Status selector */}
+      <div className="flex shrink-0 items-center gap-1.5">
         <div ref={statusMenuRef} className="relative">
           <button
             type="button"
             onClick={() => setStatusMenuOpen((o) => !o)}
             className={cn(
-              "flex h-8 items-center gap-1.5 rounded-t-lg rounded-b-none border border-b-0 px-3 text-[12px] font-medium transition-colors",
+              "inline-flex h-7 items-center gap-1 rounded-full border px-2 text-[11px] font-medium transition-colors",
               activeStatus.borderColor,
               activeStatus.bgColor,
               activeStatus.color,
-              "hover:opacity-90"
+              "hover:opacity-90",
             )}
           >
             <span className={cn("h-1.5 w-1.5 rounded-full", activeStatus.color.replace("text-", "bg-"))} />
             {activeStatus.label}
-            <ChevronDown size={14} className={cn("transition-transform", statusMenuOpen && "rotate-180")} />
+            <ChevronDown size={12} className={cn("transition-transform", statusMenuOpen && "rotate-180")} />
           </button>
           {statusMenuOpen && (
             <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
@@ -503,7 +449,7 @@ function IngestionTabPill({
                   }}
                   className={cn(
                     "flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium transition-colors hover:bg-gray-50",
-                    currentStatus === status.id ? status.color : "text-gray-700"
+                    currentStatus === status.id ? status.color : "text-gray-700",
                   )}
                 >
                   <span className={cn("h-2 w-2 rounded-full", status.color.replace("text-", "bg-"))} />
@@ -514,61 +460,66 @@ function IngestionTabPill({
           )}
         </div>
 
-        {/* CTA buttons - sitting on the line */}
-        <div className="flex items-end gap-1">
+        <button
+          type="button"
+          onClick={handlePrimaryAction}
+          disabled={isPreviewInvoice && hasUnresolvedItems}
+          className={cn(
+            "flex h-7 items-center gap-0.5 rounded-full px-3.5 font-sora text-[12px] font-semibold transition-colors",
+            isPreviewInvoice && hasUnresolvedItems
+              ? "cursor-not-allowed bg-gray-200 text-gray-400"
+              : "bg-blue-600 text-white hover:bg-blue-700",
+          )}
+        >
+          {isPreviewInvoice ? (
+            "Send for approval"
+          ) : (
+            <>
+              Preview invoice
+              <ArrowRight size={13} strokeWidth={2.5} className="ml-1" />
+            </>
+          )}
+        </button>
+
+        <div ref={menuRef} className="relative">
           <button
             type="button"
-            onClick={handlePrimaryAction}
-            disabled={isPreviewInvoice && hasUnresolvedItems}
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-label="More actions"
             className={cn(
-              "flex h-8 items-center rounded-t-lg rounded-b-none px-4 font-sora text-[13px] font-semibold transition-colors",
-              isPreviewInvoice && hasUnresolvedItems
-                ? "cursor-not-allowed bg-gray-200 text-gray-400"
-                : "bg-blue-600 text-white hover:bg-blue-700"
+              "flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-gray-200/80 hover:text-slate-700",
+              menuOpen && "bg-gray-200/80 text-slate-700",
             )}
           >
-            {isPreviewInvoice ? "Send for approval" : "Preview"}
+            <MoreHorizontal size={15} />
           </button>
-          <div ref={menuRef} className="relative flex h-8 items-center">
-            <button
-              type="button"
-              onClick={() => setMenuOpen((o) => !o)}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label="More actions"
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-t-lg rounded-b-none text-slate-500 transition-colors hover:bg-gray-200 hover:text-slate-700",
-                menuOpen && "bg-gray-200 text-slate-700",
-              )}
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-[calc(100%+6px)] z-30 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
             >
-              <MoreHorizontal size={16} />
-            </button>
-            {menuOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 top-[calc(100%+6px)] z-30 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => setMenuOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-slate-700 hover:bg-gray-100"
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-slate-700 hover:bg-gray-100"
-                >
-                  <RotateCcw size={14} strokeWidth={2} />
-                  Restart Ingestion
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 size={14} strokeWidth={2} />
-                  Discard Contract
-                </button>
-              </div>
-            )}
-          </div>
+                <RotateCcw size={14} strokeWidth={2} />
+                Restart Ingestion
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => setMenuOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-red-600 hover:bg-red-50"
+              >
+                <Trash2 size={14} strokeWidth={2} />
+                Discard Contract
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -626,6 +577,217 @@ function ContextInfoPill({ stage, customer }: { stage: StageId; customer: Custom
   );
 }
 
+const WORKFLOW_MORE_BTN_W = 64;
+const WORKFLOW_TAB_OVERLAP = 8;
+
+function ResponsiveWorkflowTabStrip({
+  activeStage,
+  onStageChange,
+}: {
+  activeStage: StageId;
+  onStageChange: (s: StageId) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState(workflowTabs.length);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+  const collapsed = true;
+  const tabHeight = TAB_HEIGHT.collapsed;
+
+  const renderTab = (tab: (typeof workflowTabs)[number], idx: number, first: boolean) => {
+    const isActive = activeStage === tab.id;
+    const isIngestionTab = tab.id === "ingestion";
+    const ingestionWip: IngestionWipState | undefined = isIngestionTab
+      ? isActive
+        ? "active"
+        : "subtle"
+      : undefined;
+
+    return (
+      <WorkspaceTabButton
+        label={tab.label}
+        active={isActive}
+        collapsed={collapsed}
+        first={first}
+        zIndex={isActive ? 50 : isIngestionTab ? 20 - idx : 10 - idx}
+        disabled={tab.disabled}
+        ingestionWip={ingestionWip}
+        onClick={() => onStageChange(tab.id)}
+      />
+    );
+  };
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const measure = measureRef.current;
+    if (!container || !measure) return;
+
+    const calc = () => {
+      const tabEls = Array.from(measure.querySelectorAll("[data-wf-measure]")) as HTMLElement[];
+      if (tabEls.length === 0) return;
+
+      const widths = tabEls.map((el) => el.offsetWidth);
+      const containerWidth = container.clientWidth;
+      // Reserve space for the More button
+      const availableWidth = containerWidth - WORKFLOW_MORE_BTN_W - 4;
+      
+      // Find the index of the active tab
+      const activeIndex = workflowTabs.findIndex((t) => t.id === activeStage);
+      
+      // Calculate how many tabs fit, but ensure active tab is always visible
+      let used = 0;
+      let count = 0;
+      let activeTabIncluded = false;
+
+      for (let i = 0; i < widths.length; i++) {
+        const overlap = i > 0 ? WORKFLOW_TAB_OVERLAP : 0;
+        const nextUsed = used + widths[i] - overlap;
+        
+        // Always include the active tab
+        if (i === activeIndex) {
+          used = nextUsed;
+          count = i + 1;
+          activeTabIncluded = true;
+          continue;
+        }
+        
+        if (nextUsed > availableWidth && i > 0) break;
+        used = nextUsed;
+        count = i + 1;
+      }
+
+      // If active tab wasn't included in the natural flow, we need to ensure it is
+      // by potentially removing earlier tabs
+      if (!activeTabIncluded && activeIndex >= count) {
+        // Include all tabs up to and including the active tab
+        count = activeIndex + 1;
+      }
+
+      setVisibleCount(Math.max(1, count));
+    };
+
+    calc();
+    const ro = new ResizeObserver(calc);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [activeStage]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [moreOpen]);
+
+  const visibleTabs = workflowTabs.slice(0, visibleCount);
+  const hiddenTabs = workflowTabs.slice(visibleCount);
+  const hasHiddenTabs = hiddenTabs.length > 0;
+
+  return (
+    <div className="flex min-w-0 flex-1 items-end">
+      {/* Tab measurement and display container */}
+      <div ref={containerRef} className="relative flex min-w-0 flex-1 items-end overflow-hidden">
+        {/* Hidden measurement row */}
+        <div ref={measureRef} className="pointer-events-none invisible absolute left-0 top-0 flex items-end" aria-hidden>
+          {workflowTabs.map((tab, idx) => (
+            <div
+              key={`measure-${tab.id}`}
+              data-wf-measure=""
+              className={cn("inline-flex shrink-0", idx > 0 && TAB_OVERLAP_CLASS)}
+            >
+              {renderTab(tab, idx, idx === 0)}
+            </div>
+          ))}
+        </div>
+
+        {/* Visible tabs */}
+        <div className="flex items-end">
+          {visibleTabs.map((tab, idx) => (
+            <div key={tab.id} className={cn("inline-flex shrink-0", idx > 0 && TAB_OVERLAP_CLASS)}>
+              {renderTab(tab, workflowTabs.indexOf(tab), idx === 0)}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* More button - positioned outside overflow-hidden container */}
+      <div ref={moreRef} className="relative shrink-0" style={{ zIndex: 60 }}>
+        <button
+          type="button"
+          onClick={() => setMoreOpen((o) => !o)}
+          className={cn(
+            "relative inline-flex shrink-0 items-center justify-center gap-0.5 rounded-md px-2 text-slate-500 transition-colors hover:bg-black/[0.05] hover:text-slate-700",
+            moreOpen && "bg-black/[0.05] text-slate-700",
+          )}
+          style={{ height: tabHeight, minWidth: WORKFLOW_MORE_BTN_W }}
+          title="More options"
+          aria-label="More options"
+          aria-haspopup="menu"
+          aria-expanded={moreOpen}
+        >
+          <span className="text-[11px] font-semibold">More</span>
+          <ChevronDown size={12} className={cn("transition-transform", moreOpen && "rotate-180")} />
+        </button>
+        {moreOpen && (
+          <div
+            role="menu"
+            className="absolute right-0 top-[calc(100%+4px)] z-[100] min-w-[10rem] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+          >
+            {hasHiddenTabs && (
+              <>
+                {hiddenTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="menuitem"
+                    disabled={tab.disabled}
+                    onClick={() => {
+                      if (!tab.disabled) onStageChange(tab.id);
+                      setMoreOpen(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center px-3 py-2 text-left text-[12px] font-medium transition-colors",
+                      tab.disabled
+                        ? "cursor-not-allowed text-gray-400 opacity-55"
+                        : activeStage === tab.id
+                          ? "bg-blue-50 text-blue-700"
+                          : "text-gray-700 hover:bg-gray-50",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+                <div className="my-1 h-px bg-gray-200" aria-hidden />
+              </>
+            )}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => setMoreOpen(false)}
+              className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              <span>Riveric</span>
+              <ChevronRight size={14} className="text-gray-400" />
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => setMoreOpen(false)}
+              className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              <span>Connect</span>
+              <ChevronRight size={14} className="text-gray-400" />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ActionsPillWrapper({ children }: { children: ReactNode }) {
   return (
     <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-sm">
@@ -641,135 +803,49 @@ export function CustomerContextBar({
   customer,
   activeStage,
   onStageChange,
-  collapsed,
   ingestionSubTab,
   onIngestionSubTabChange,
   hasUnresolvedItems = false,
-  openPDFs = [],
-  activePDF,
-  onSelectPDF,
-  onClosePDF,
 }: {
   customer: Customer;
   activeStage: StageId;
   onStageChange: (s: StageId) => void;
-  collapsed: boolean;
   ingestionSubTab: string;
   onIngestionSubTabChange: (id: string) => void;
   hasUnresolvedItems?: boolean;
-  openPDFs?: SourcePDF[];
-  activePDF?: SourcePDF | null;
-  onSelectPDF?: (pdf: SourcePDF | null) => void;
-  onClosePDF?: (pdfId: string) => void;
 }) {
   const isIngestion = activeStage === "ingestion";
-  const gap = collapsed ? HEADER_TABS_GAP.collapsed : HEADER_TABS_GAP.expanded;
-  const hangingHeight = (isIngestion ? INGESTION_BAR_HEIGHT : CONTEXT_PILL_HEIGHT) + 1 + gap;
+  const hangingHeight = CONTEXT_PILL_HEIGHT + HEADER_TABS_GAP.collapsed + 1;
 
   return (
-    <div className="sticky top-0 z-20 bg-transparent">
-      <div
-        className={cn(
-          "transition-[background-color,backdrop-filter] duration-300 ease-out",
-          collapsed && "bg-gray-100/75 backdrop-blur-md backdrop-saturate-150",
-        )}
-      >
-        <div
-          className="flex flex-col gap-1 pl-7 pr-8 transition-all duration-300 ease-out"
-          style={{
-            paddingTop: collapsed ? 8 : 18,
-            paddingBottom: collapsed ? 10 : 16,
-          }}
-        >
-          {/* Breadcrumb + team meta */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <Breadcrumbs collapsed={collapsed} />
-            </div>
-            <CustomerTeamMeta customer={customer} collapsed={collapsed} />
-          </div>
-          {/* Customer name + priority chips */}
-          <div className="flex items-center justify-between gap-4">
-            <h1
-              className="min-w-0 flex-1 truncate font-bold leading-tight tracking-tight text-text-primary transition-all duration-300 ease-out"
-              style={{ fontSize: collapsed ? 16 : 28 }}
-            >
-              {customer.name}
-            </h1>
-            <CustomerPriorityChips collapsed={collapsed} />
-          </div>
+    <div className="sticky top-0 z-20 mt-2 bg-gray-100/90 backdrop-blur-md backdrop-saturate-150">
+      {/* Customer name + chips on left, workflow tabs on right */}
+      <div className="relative flex items-end px-6 pt-2 pb-0">
+        <div className="flex shrink-0 items-center gap-2 pb-2">
+          <h1 className="truncate text-[16px] font-bold leading-tight tracking-tight text-text-primary">
+            {customer.name}
+          </h1>
+          <CustomerPriorityChips />
+        </div>
+        <div className="ml-4 min-w-0 flex-1 pb-0">
+          <ResponsiveWorkflowTabStrip activeStage={activeStage} onStageChange={onStageChange} />
         </div>
       </div>
-
-      {/* Tab strip */}
-      <div
-        className={cn(
-          "relative -mt-px w-full min-w-0 overflow-x-clip overflow-y-visible transition-[background-color,backdrop-filter] duration-300 ease-out",
-          collapsed && "bg-gray-100/75 backdrop-blur-md backdrop-saturate-150",
-        )}
-      >
-        <div className="relative flex w-full min-w-0 items-end justify-center overflow-x-clip overflow-y-visible px-4">
-          {workflowTabs.map((tab, idx) => {
-            const isActive = activeStage === tab.id;
-            const isIngestionTab = tab.id === "ingestion";
-            const ingestionWip: IngestionWipState | undefined = isIngestionTab
-              ? isActive
-                ? "active"
-                : "subtle"
-              : undefined;
-            return (
-              <WorkspaceTabButton
-                key={tab.id}
-                label={tab.label}
-                active={isActive}
-                collapsed={collapsed}
-                first={idx === 0}
-                zIndex={isActive ? 50 : isIngestionTab ? 20 - idx : 10 - idx}
-                disabled={tab.disabled}
-                ingestionWip={ingestionWip}
-                onClick={() => onStageChange(tab.id)}
-              />
-            );
-          })}
-          {/* "More" affordance */}
-          <button
-            type="button"
-            className={cn("group/more relative ml-1 inline-flex shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-black/[0.05] hover:text-slate-700")}
-            style={{ height: collapsed ? TAB_HEIGHT.collapsed : TAB_HEIGHT.expanded, width: 44 }}
-            title="More"
-            aria-label="More tabs"
-          >
-            <MoreHorizontal size={18} />
-          </button>
-        </div>
-      </div>
-
-      {/* Separator line below workflow tabs */}
-      <div className="h-px w-full" style={{ background: BORDER_GREY }} />
+      {/* Horizontal line under workflow tabs - extends edge to edge */}
+      <div className="h-px bg-gray-300" aria-hidden="true" />
 
       {isIngestion ? (
-        <>
-          {/* Ingestion bar with blurred background and shadow */}
-          <div className="relative w-full bg-gray-100/80 pt-3 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] backdrop-blur-md backdrop-saturate-150">
-            <IngestionTabPill
-              activeSubTab={ingestionSubTab}
-              onSubTabChange={onIngestionSubTabChange}
-              hasUnresolvedItems={hasUnresolvedItems}
-              openPDFs={openPDFs}
-              activePDF={activePDF}
-              onSelectPDF={onSelectPDF}
-              onClosePDF={onClosePDF}
-            />
-            {/* Edge-to-edge horizontal line at bottom */}
-            <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: BORDER_GREY }} />
-          </div>
-          {/* Spacer */}
-          <div className="h-4" />
-        </>
+        <div className="relative z-30 w-full pb-1">
+          <IngestionTabPill
+            activeSubTab={ingestionSubTab}
+            onSubTabChange={onIngestionSubTabChange}
+            hasUnresolvedItems={hasUnresolvedItems}
+          />
+        </div>
       ) : (
         <>
-          <div className="relative">
-            <div className="flex items-start justify-between px-6 pt-2">
+          <div className="relative px-6 pb-2">
+            <div className="flex items-start justify-between">
               <ContextInfoPill stage={activeStage} customer={customer} />
               <ActionsPillWrapper>
                 <button className="flex h-7 items-center rounded-md px-3 text-[12px] font-semibold text-slate-600 hover:bg-gray-100">
@@ -778,8 +854,7 @@ export function CustomerContextBar({
               </ActionsPillWrapper>
             </div>
           </div>
-          {/* Spacer for the hanging pills */}
-          <div className="transition-all duration-300 ease-out" style={{ height: hangingHeight }} />
+          <div style={{ height: hangingHeight }} aria-hidden />
         </>
       )}
     </div>

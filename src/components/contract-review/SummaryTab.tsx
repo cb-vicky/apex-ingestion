@@ -1,5 +1,5 @@
-import { type ReactNode, useState } from "react";
-import { Check, ChevronRight, ExternalLink, Pin, Plus, Sparkles, X } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
+import { Check, ExternalLink, Pin, Plus, Sparkles, TriangleAlert, X } from "lucide-react";
 import type { Address, BillingInfo, CustomerDetails, LineItem } from "@/data/mock-contracts";
 import { cn } from "@/lib/utils";
 import { ReadyBadge, NeedsMappingBadge } from "./StatusBadges";
@@ -478,14 +478,7 @@ function NoteItem({
 
   return (
     <div
-      className={cn(
-        "group relative flex min-w-0 items-start gap-2 rounded-md border px-2.5 py-2 transition-all",
-        note.isResolved
-          ? "border-gray-100 bg-gray-50/50"
-          : note.isPinned
-            ? "border-blue-200 bg-blue-50/50"
-            : "border-gray-200 bg-white"
-      )}
+      className="group relative flex min-w-0 items-start gap-2 py-0.5 transition-all"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -567,12 +560,21 @@ function NoteItem({
   );
 }
 
+function sortNotes(notes: Note[]): Note[] {
+  return [...notes].sort((a, b) => {
+    if (a.isResolved !== b.isResolved) return a.isResolved ? 1 : -1;
+    return 0;
+  });
+}
+
 function NotesList({
   notes,
   onNotesChange,
+  pinnedOnly = false,
 }: {
   notes: Note[];
   onNotesChange: (notes: Note[]) => void;
+  pinnedOnly?: boolean;
 }) {
   const handlePin = (id: string) => {
     onNotesChange(
@@ -586,16 +588,12 @@ function NotesList({
     );
   };
 
-  // Sort: pinned first, then unresolved, then resolved
-  const sortedNotes = [...notes].sort((a, b) => {
-    if (a.isPinned && !a.isResolved && !(b.isPinned && !b.isResolved)) return -1;
-    if (b.isPinned && !b.isResolved && !(a.isPinned && !a.isResolved)) return 1;
-    if (!a.isResolved && b.isResolved) return -1;
-    if (a.isResolved && !b.isResolved) return 1;
-    return 0;
-  });
+  const filtered = pinnedOnly
+    ? notes.filter((n) => n.isPinned)
+    : notes.filter((n) => !n.isPinned);
+  const sortedNotes = sortNotes(filtered);
 
-  if (notes.length === 0) return null;
+  if (sortedNotes.length === 0) return null;
 
   return (
     <div className="mt-3 flex min-w-0 flex-col gap-1.5">
@@ -628,41 +626,54 @@ export interface SourcePDF {
   name: string;
 }
 
-function SourcePDFStrip({
-  files,
-  onOpenPDF,
-  className,
-}: {
-  files: SourcePDF[];
-  onOpenPDF?: (pdf: SourcePDF) => void;
-  className?: string;
-}) {
-  const truncateName = (name: string, maxLen = 10) => {
-    if (name.length <= maxLen) return name;
-    return name.slice(0, maxLen) + "…";
-  };
+interface SectionNavItem {
+  id: string;
+  label: string;
+  status: "ready" | "warning";
+  errorCount?: number;
+}
 
+function StickySectionNav({ sections }: { sections: SectionNavItem[] }) {
   return (
-    <div
-      className={cn(
-        "flex items-center justify-between rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-1.5",
-        className ?? "mb-3"
-      )}
+    <nav
+      className="sticky top-4 z-10 flex w-auto flex-col items-start gap-1 py-1"
+      aria-label="Section navigation"
     >
-      <span className="shrink-0 text-[11px] font-medium text-gray-500">Contract PDFs</span>
-      <div className="flex items-center gap-3">
-        {files.map((file) => (
-          <button
-            key={file.id}
-            type="button"
-            onClick={() => onOpenPDF?.(file)}
-            className="inline-flex items-center gap-1 text-[12px] font-medium text-blue-600 hover:text-blue-700 hover:underline"
-          >
-            <span>{truncateName(file.name)}</span>
-            <ExternalLink size={11} />
-          </button>
-        ))}
-      </div>
+      {sections.map((section) => (
+        <button
+          key={section.id}
+          type="button"
+          onClick={() => scrollToSection(section.id)}
+          className="group inline-flex items-center gap-1.5 rounded-full border border-transparent bg-gray-200/70 px-2.5 py-1 text-left transition-colors hover:border-gray-200/80 hover:bg-white"
+        >
+          {section.status === "ready" ? (
+            <Check size={11} strokeWidth={2.5} className="shrink-0 text-emerald-500" aria-hidden />
+          ) : (
+            <TriangleAlert size={11} className="shrink-0 text-red-500" aria-hidden />
+          )}
+          <span className="whitespace-nowrap text-[11px] font-medium text-gray-700 group-hover:text-gray-900">
+            {section.label}
+          </span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function OverviewPDFLinks({ onOpenPDF }: { onOpenPDF?: (pdf: SourcePDF) => void }) {
+  return (
+    <div className="flex flex-col py-1">
+      {contractPDFs.map((file) => (
+        <button
+          key={file.id}
+          type="button"
+          onClick={() => onOpenPDF?.(file)}
+          className="inline-flex items-center gap-1.5 py-2.5 text-left text-[13px] font-medium text-blue-600 transition-colors hover:text-blue-700"
+        >
+          <span>{file.name}</span>
+          <ExternalLink size={12} className="shrink-0 opacity-70" aria-hidden />
+        </button>
+      ))}
     </div>
   );
 }
@@ -677,181 +688,224 @@ function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-interface SectionStatus {
-  id: string;
-  label: string;
-  ready: boolean;
-  errorCount?: number;
+function buildLineItemsErrorNote(
+  lineItems: LineItem[],
+  context: "overview" | "section" = "section",
+): string | null {
+  const unmappedItems = lineItems.filter((i) => i.mappingStatus === "needs_mapping");
+  if (unmappedItems.length === 0) return null;
+  const count = unmappedItems.length;
+  const prefix =
+    context === "overview"
+      ? `Found ${count} unresolved mapping${count === 1 ? "" : "s"} in Line Items. `
+      : `Found ${count} unresolved mapping${count === 1 ? "" : "s"}. `;
+  return `${prefix}"${unmappedItems.map((i) => i.name).join('", "')}" could not be matched to the product catalog. Review and map before approval.`;
 }
 
-function SectionStatusRow({ section }: { section: SectionStatus }) {
-  return (
-    <button
-      type="button"
-      onClick={() => scrollToSection(section.id)}
-      className="group flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50"
-    >
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="text-[13px] font-medium text-gray-900">{section.label}</span>
-        <ChevronRight
-          size={14}
-          className="shrink-0 text-gray-300 transition-colors group-hover:text-gray-500"
-        />
-      </div>
-      {section.ready ? (
-        <ReadyBadge />
-      ) : (
-        <NeedsMappingBadge count={section.errorCount ?? 1} />
-      )}
-    </button>
-  );
+const LINE_ITEMS_ERROR_COMMENT_IDS = new Set(["overview-error", "line-items-error"]);
+
+function isLineItemsErrorComment(id: string) {
+  return LINE_ITEMS_ERROR_COMMENT_IDS.has(id);
 }
+
+const CONTENT_COL = "65fr";
+const SIDEBAR_COL = "35fr";
+
 
 function AINoteItem({
   content,
   targetSectionId,
+  variant = "error",
+  isResolved = false,
+  onResolve,
 }: {
   content: string;
-  targetSectionId: string;
+  targetSectionId?: string;
+  variant?: "error" | "comment";
+  isResolved?: boolean;
+  onResolve?: () => void;
 }) {
+  const [isRead, setIsRead] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
+  const isError = variant === "error" && !isResolved;
+  const showPurpleUnread = variant === "comment" && !isRead && !isResolved;
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (variant === "comment" && !isResolved) setIsRead(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
+
+  const handleContentClick = () => {
+    if (isError && targetSectionId) {
+      scrollToSection(targetSectionId);
+    }
+  };
+
+  const avatarClass = cn(
+    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+    isResolved
+      ? "bg-gray-200 text-gray-500"
+      : isError
+        ? "bg-red-100 text-red-600"
+        : showPurpleUnread
+          ? "bg-purple-100 text-purple-600"
+          : "bg-gray-100 text-gray-500",
+  );
+
+  const authorClass = cn(
+    "truncate text-[11px] font-medium",
+    isResolved ? "text-gray-400" : isError ? "text-red-700" : showPurpleUnread ? "text-purple-700" : "text-gray-700",
+  );
+
+  const contentClass = cn(
+    "mt-0.5 text-[12px] leading-relaxed transition-all",
+    isResolved ? "text-gray-400 line-through" : isError ? "text-red-700" : "text-gray-600",
+    isHovered ? "whitespace-normal break-words" : "truncate",
+  );
+
   return (
-    <button
-      type="button"
-      onClick={() => scrollToSection(targetSectionId)}
-      className="group relative flex min-w-0 w-full items-start gap-2 rounded-md border border-red-200 bg-red-50/50 px-2.5 py-2 text-left transition-all hover:border-red-300 hover:bg-red-50"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+    <div
+      className="group relative flex min-w-0 w-full items-start gap-2 py-0.5 transition-all"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
-      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+      <div className={avatarClass}>
         <Sparkles size={11} />
       </div>
-      <div className="min-w-0 flex-1 overflow-hidden">
+      <div
+        className={cn(
+          "min-w-0 flex-1 overflow-hidden text-left",
+          isError && targetSectionId && "cursor-pointer",
+        )}
+        onClick={handleContentClick}
+        onKeyDown={(e) => {
+          if (isError && targetSectionId && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            scrollToSection(targetSectionId);
+          }
+        }}
+        role={isError && targetSectionId ? "button" : undefined}
+        tabIndex={isError && targetSectionId ? 0 : undefined}
+      >
         <div className="flex items-center gap-1.5">
-          <span className="truncate text-[11px] font-medium text-red-700">Apex AI</span>
+          <span className={authorClass}>Apex AI</span>
+          {isError && <TriangleAlert size={10} className="shrink-0 text-red-500" />}
         </div>
-        <p
+        <p className={contentClass}>{content}</p>
+      </div>
+
+      {onResolve && (
+        <div
           className={cn(
-            "mt-0.5 text-[12px] leading-relaxed text-red-700 transition-all",
-            isHovered ? "whitespace-normal break-words" : "truncate"
+            "flex shrink-0 items-center gap-0.5 transition-opacity",
+            isHovered ? "opacity-100" : "opacity-0",
           )}
         >
-          {content}
-        </p>
-      </div>
-    </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onResolve();
+            }}
+            className={cn(
+              "flex h-6 w-6 items-center justify-center rounded transition-colors",
+              isResolved
+                ? "text-emerald-500 hover:bg-emerald-100"
+                : "text-gray-400 hover:bg-gray-100 hover:text-gray-600",
+            )}
+            title={isResolved ? "Unresolve comment" : "Resolve comment"}
+          >
+            <Check size={12} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
-function OverviewSection({
-  customerName,
-  lineItems,
-  unmappedCount,
-  onOpenPDF,
+type ThumbnailType = "customer" | "lineItems" | "billing" | "addresses";
+
+interface ThumbnailConfig {
+  type: ThumbnailType;
+  label: string;
+  page: number;
+}
+
+function SectionContent({
+  id,
+  heading,
+  ready,
+  hasError,
+  children,
 }: {
-  customerName: string;
-  lineItems: LineItem[];
-  unmappedCount: number;
-  onOpenPDF?: (pdf: SourcePDF) => void;
+  id: string;
+  heading: string;
+  ready?: boolean;
+  hasError?: boolean;
+  children: ReactNode;
 }) {
-  const lineItemsReady = unmappedCount === 0;
-  const hasErrors = !lineItemsReady;
-  const readyCount = 3 + (lineItemsReady ? 1 : 0);
+  return (
+    <div id={id} className="scroll-mt-4">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <h2 className="font-sans text-[14px] font-bold leading-tight text-gray-900">{heading}</h2>
+        {ready && <ReadyBadge />}
+        {hasError && <NeedsMappingBadge count={1} />}
+      </div>
+      {children}
+    </div>
+  );
+}
 
-  const sectionStatuses: SectionStatus[] = [
-    { id: "customer-details", label: "Customer Details", ready: true },
-    { id: "addresses", label: "Addresses", ready: true },
-    { id: "billing-info", label: "Billing Info", ready: true },
-    { id: "line-items", label: "Line Items", ready: lineItemsReady, errorCount: unmappedCount },
-  ];
-
-  const unmappedItems = lineItems.filter((i) => i.mappingStatus === "needs_mapping");
-  const totalValue = lineItems.reduce((sum, i) => sum + i.totalPrice, 0);
-
-  const aiErrorNote =
-    unmappedCount > 0
-      ? `Found ${unmappedCount} unresolved mapping${unmappedCount === 1 ? "" : "s"} in Line Items. "${unmappedItems.map((i) => i.name).join('", "')}" could not be matched to the product catalog. Review and map before approval.`
-      : null;
-
-  const errorSectionId = sectionStatuses.find((s) => !s.ready)?.id ?? "line-items";
-
-  const overviewThumbnails: ThumbnailConfig[] = [
-    { type: "customer", label: "Customer Information", page: 1 },
-    { type: "lineItems", label: "Pricing Schedule", page: 2 },
-    { type: "billing", label: "Payment Terms", page: 3 },
-  ];
-
+function OverviewSidebar({
+  thumbnails,
+  onToggleAiCommentResolved,
+  getAiCommentResolved,
+  displayOverviewErrorNote,
+  errorSectionId,
+}: {
+  thumbnails: ThumbnailConfig[];
+  onToggleAiCommentResolved: (id: string) => void;
+  getAiCommentResolved: (id: string) => boolean;
+  displayOverviewErrorNote: string | null;
+  errorSectionId: string;
+}) {
   const [activePreview, setActivePreview] = useState<ThumbnailConfig | null>(null);
 
   return (
     <>
-      <section id="overview" className="grid grid-cols-[65fr_35fr] gap-6 scroll-mt-4">
-        <div className="min-w-0 pb-4">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <h2 className="font-sans text-[14px] font-bold leading-tight text-gray-900">Overview</h2>
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-semibold leading-4 text-violet-700">
-              <Sparkles size={11} className="shrink-0 text-violet-500" />
-              Summary
-            </span>
-          </div>
-
-          <p className="mb-4 text-[13px] leading-relaxed text-gray-700">
-            12-month MSA with <span className="font-semibold text-gray-900">{customerName}</span>{" "}
-            covering {lineItems.length} line items — Growth CRM ({lineItems.find((i) => i.name.includes("CRM"))?.quantity ?? 25} seats), onboarding services, and premium support.
-            Total contract value:{" "}
-            <span className="font-semibold text-gray-900">
-              ${totalValue.toLocaleString("en-US")}/yr
-            </span>
-            . {readyCount} of 4 sections are ready for approval.
-          </p>
-
-          <div className="mb-4 overflow-hidden rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
-            {sectionStatuses.map((section) => (
-              <SectionStatusRow key={section.id} section={section} />
-            ))}
-          </div>
-
-          <SourcePDFStrip files={contractPDFs} onOpenPDF={onOpenPDF} className="mb-0" />
+      <div className="flex min-w-0 max-w-full flex-col overflow-hidden">
+        <div className="flex flex-wrap gap-2">
+          {thumbnails.map((thumb, idx) => (
+            <PDFThumbnail key={idx} type={thumb.type} onClick={() => setActivePreview(thumb)} />
+          ))}
         </div>
 
-        <div className="flex min-w-0 gap-4">
-          <div className="flex flex-col items-center self-stretch">
-            <div
-              className={cn(
-                "mt-1 h-2.5 w-2.5 shrink-0 rounded-full border-2 bg-white",
-                hasErrors ? "border-red-400" : "border-gray-400"
-              )}
-            />
-            <div
-              className={cn(
-                "w-px flex-1 -mb-11",
-                hasErrors
-                  ? "bg-gradient-to-b from-red-400 via-red-300 to-transparent"
-                  : "bg-gradient-to-b from-gray-300 via-gray-300 to-transparent"
-              )}
-            />
-          </div>
-
-          <div className="flex min-w-0 flex-1 flex-col">
-            <div className="flex flex-wrap gap-2">
-              {overviewThumbnails.map((thumb, idx) => (
-                <PDFThumbnail key={idx} type={thumb.type} onClick={() => setActivePreview(thumb)} />
-              ))}
-            </div>
-
-            <p className="mt-3 text-[13px] leading-relaxed text-gray-600">
-              Apex AI reviewed all extracted sections from the contract PDFs. Most fields match the source document and are ready for approval. Click a section on the left to jump directly to its review area.
-            </p>
-
-            {aiErrorNote && (
-              <div className="mt-3">
-                <AINoteItem content={aiErrorNote} targetSectionId={errorSectionId} />
-              </div>
-            )}
-          </div>
+        <div className="mt-3 min-w-0 max-w-full overflow-hidden">
+          <AINoteItem
+            variant="comment"
+            content="Apex AI reviewed all extracted sections from the contract PDFs. Most fields match the source document and are ready for approval. Click a section on the left to jump directly to its review area."
+            isResolved={getAiCommentResolved("overview-comment")}
+            onResolve={() => onToggleAiCommentResolved("overview-comment")}
+          />
         </div>
-      </section>
+
+        {displayOverviewErrorNote && (
+          <div className="mt-3 min-w-0 max-w-full overflow-hidden">
+            <AINoteItem
+              variant="error"
+              content={displayOverviewErrorNote}
+              targetSectionId={errorSectionId}
+              isResolved={getAiCommentResolved("overview-error")}
+              onResolve={() => onToggleAiCommentResolved("overview-error")}
+            />
+          </div>
+        )}
+      </div>
 
       <PDFPreviewModal
         open={activePreview !== null}
@@ -864,104 +918,64 @@ function OverviewSection({
   );
 }
 
-type ThumbnailType = "customer" | "lineItems" | "billing" | "addresses";
-
-interface ThumbnailConfig {
-  type: ThumbnailType;
-  label: string;
-  page: number;
-}
-
-function SummarySectionCard({
+function SectionSidebar({
   id,
-  heading,
   description,
-  ready,
-  children,
-  isLast = false,
-  hasError = false,
   thumbnails,
   notes,
   onNotesChange,
+  errorNote,
+  errorTargetSectionId,
+  onToggleAiCommentResolved,
+  getAiCommentResolved,
 }: {
   id: string;
-  heading: string;
   description: string;
-  ready?: boolean;
-  children: ReactNode;
-  isLast?: boolean;
-  hasError?: boolean;
   thumbnails: ThumbnailConfig[];
   notes: Note[];
   onNotesChange: (notes: Note[]) => void;
+  errorNote?: string | null;
+  errorTargetSectionId?: string;
+  onToggleAiCommentResolved: (id: string) => void;
+  getAiCommentResolved: (id: string) => boolean;
 }) {
   const [activePreview, setActivePreview] = useState<ThumbnailConfig | null>(null);
 
   return (
     <>
-      <section id={id} className={cn("grid grid-cols-[65fr_35fr] gap-6 scroll-mt-4", isLast && "pb-2")}>
-        {/* Left: Title + Data table - 65% */}
-        <div className={cn("min-w-0", isLast ? "pb-6" : "pb-4")}>
-          {/* Section title and status */}
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <h2 className="font-sans text-[14px] font-bold leading-tight text-gray-900">
-              {heading}
-            </h2>
-            {ready && <ReadyBadge />}
-            {hasError && <NeedsMappingBadge count={1} />}
-          </div>
-          {children}
+      <div className="flex min-w-0 max-w-full flex-col overflow-hidden">
+        <div className="flex flex-wrap gap-2">
+          {thumbnails.map((thumb, idx) => (
+            <PDFThumbnail key={idx} type={thumb.type} onClick={() => setActivePreview(thumb)} />
+          ))}
         </div>
 
-        {/* Right: Timeline + Context - 35% */}
-        <div className="flex min-w-0 gap-4">
-          {/* Timeline dot + vertical line */}
-          <div className="flex flex-col items-center self-stretch">
-            <div
-              className={cn(
-                "mt-1 h-2.5 w-2.5 shrink-0 rounded-full border-2 bg-white",
-                hasError ? "border-red-400" : "border-gray-400"
-              )}
-            />
-            <div
-              className={cn(
-                "w-px flex-1",
-                isLast ? "mb-0" : "-mb-11",
-                hasError
-                  ? "bg-gradient-to-b from-red-400 via-red-300 to-transparent"
-                  : "bg-gradient-to-b from-gray-300 via-gray-300 to-transparent"
-              )}
-            />
-          </div>
+        <NotesList notes={notes} onNotesChange={onNotesChange} pinnedOnly />
 
-          {/* Thumbnail + Description + Notes */}
-          <div className="flex min-w-0 flex-1 flex-col">
-            {/* Thumbnails */}
-            <div className="flex flex-wrap gap-2">
-              {thumbnails.map((thumb, idx) => (
-                <PDFThumbnail
-                  key={idx}
-                  type={thumb.type}
-                  onClick={() => setActivePreview(thumb)}
-                />
-              ))}
-            </div>
-
-            {/* Description */}
-            <p className="mt-3 text-[13px] leading-relaxed text-gray-600">{description}</p>
-
-            {/* Notes list */}
-            <NotesList notes={notes} onNotesChange={onNotesChange} />
-
-            {/* Add Notes CTA */}
-            <AddNotesButton />
-          </div>
+        <div className="mt-3 min-w-0 max-w-full overflow-hidden">
+          <AINoteItem
+            variant="comment"
+            content={description}
+            isResolved={getAiCommentResolved(`${id}-comment`)}
+            onResolve={() => onToggleAiCommentResolved(`${id}-comment`)}
+          />
         </div>
-      </section>
 
-      {isLast && (
-        <div className="mt-2 border-b border-dotted border-gray-300 pb-20" aria-hidden="true" />
-      )}
+        {errorNote && (
+          <div className="mt-3 min-w-0 max-w-full overflow-hidden">
+            <AINoteItem
+              variant="error"
+              content={errorNote}
+              targetSectionId={errorTargetSectionId ?? id}
+              isResolved={getAiCommentResolved(`${id}-error`)}
+              onResolve={() => onToggleAiCommentResolved(`${id}-error`)}
+            />
+          </div>
+        )}
+
+        <NotesList notes={notes} onNotesChange={onNotesChange} />
+        <AddNotesButton />
+      </div>
 
       <PDFPreviewModal
         open={activePreview !== null}
@@ -1055,6 +1069,34 @@ export function SummaryTab({
 }) {
   const unmappedCount = lineItems.filter((i) => i.mappingStatus === "needs_mapping").length;
   const lineItemsReady = unmappedCount === 0;
+  const lineItemsErrorNote = buildLineItemsErrorNote(lineItems);
+  const overviewErrorNote = buildLineItemsErrorNote(lineItems, "overview");
+
+  const [resolvedAiComments, setResolvedAiComments] = useState<Record<string, boolean>>({});
+  const [lastErrorNotes, setLastErrorNotes] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setLastErrorNotes((prev) => {
+      const next = { ...prev };
+      if (overviewErrorNote) next["overview-error"] = overviewErrorNote;
+      if (lineItemsErrorNote) next["line-items-error"] = lineItemsErrorNote;
+      return next;
+    });
+  }, [overviewErrorNote, lineItemsErrorNote]);
+
+  const getAiCommentResolved = (commentId: string) => {
+    if (isLineItemsErrorComment(commentId) && !lineItemsErrorNote && lastErrorNotes[commentId]) {
+      return true;
+    }
+    return !!resolvedAiComments[commentId];
+  };
+
+  const toggleAiCommentResolved = (commentId: string) => {
+    setResolvedAiComments((prev) => ({
+      ...prev,
+      [commentId]: !getAiCommentResolved(commentId),
+    }));
+  };
 
   // Notes state for each section
   const [customerNotes, setCustomerNotes] = useState<Note[]>(initialCustomerNotes);
@@ -1062,42 +1104,46 @@ export function SummaryTab({
   const [billingNotes, setBillingNotes] = useState<Note[]>(initialBillingNotes);
   const [addressNotes, setAddressNotes] = useState<Note[]>(initialAddressNotes);
 
-  return (
-    <div className="flex flex-col gap-10 px-6 py-2">
-        <OverviewSection
-          customerName={customerName ?? customerDetails.accountName}
-          lineItems={lineItems}
-          unmappedCount={unmappedCount}
-          onOpenPDF={onOpenPDF}
-        />
+  const sectionNavItems: SectionNavItem[] = [
+    { id: "customer-details", label: "Account", status: "ready" },
+    { id: "addresses", label: "Ship & bill to", status: "ready" },
+    { id: "billing-info", label: "Terms & billing", status: "ready" },
+    {
+      id: "line-items",
+      label: "Products & pricing",
+      status: lineItemsReady ? "ready" : "warning",
+      errorCount: unmappedCount,
+    },
+  ];
 
-        <SummarySectionCard
-          id="customer-details"
-          heading="Customer Details"
-          description="Review and verify the customer account information extracted from the contract."
-          ready
-          thumbnails={[
-            { type: "customer", label: "Customer Information", page: 1 },
-            { type: "addresses", label: "Notice Provisions", page: 4 },
-          ]}
-          notes={customerNotes}
-          onNotesChange={setCustomerNotes}
-        >
-          <CustomerDetailsTable data={customerDetails} onChange={onCustomerDetailsChange} />
-        </SummarySectionCard>
-
-        <SummarySectionCard
-          id="addresses"
-          heading="Addresses"
-          description="Verify or update the billing and shipping addresses for this contract."
-          ready
-          thumbnails={[
-            { type: "addresses", label: "Address Details", page: 4 },
-            { type: "customer", label: "Customer Information", page: 1 },
-          ]}
-          notes={addressNotes}
-          onNotesChange={setAddressNotes}
-        >
+  const sectionConfigs = [
+    {
+      id: "customer-details",
+      heading: "Account",
+      description: "Review and verify the customer account information extracted from the contract.",
+      ready: true,
+      hasError: false,
+      thumbnails: [
+        { type: "customer" as const, label: "Customer Information", page: 1 },
+        { type: "addresses" as const, label: "Notice Provisions", page: 4 },
+      ],
+      notes: customerNotes,
+      onNotesChange: setCustomerNotes,
+      content: <CustomerDetailsTable data={customerDetails} onChange={onCustomerDetailsChange} />,
+    },
+    {
+      id: "addresses",
+      heading: "Ship & bill to",
+      description: "Verify or update the billing and shipping addresses for this contract.",
+      ready: true,
+      hasError: false,
+      thumbnails: [
+        { type: "addresses" as const, label: "Address Details", page: 4 },
+        { type: "customer" as const, label: "Customer Information", page: 1 },
+      ],
+      notes: addressNotes,
+      onNotesChange: setAddressNotes,
+      content: (
         <AddressesTable
           billing={billingAddress}
           shipping={shippingAddress}
@@ -1106,39 +1152,129 @@ export function SummaryTab({
           onShippingChange={onShippingAddressChange}
           onSameAsBillingChange={onSameAsBillingChange}
         />
-      </SummarySectionCard>
+      ),
+    },
+    {
+      id: "billing-info",
+      heading: "Terms & billing",
+      description: "Configure billing settings including term, cycle, and payment terms.",
+      ready: true,
+      hasError: false,
+      thumbnails: [{ type: "billing" as const, label: "Payment Terms", page: 3 }],
+      notes: billingNotes,
+      onNotesChange: setBillingNotes,
+      content: <BillingInfoTable data={billingInfo} onChange={onBillingInfoChange} />,
+    },
+    {
+      id: "line-items",
+      heading: "Products & pricing",
+      description: "Review the extracted line items from the contract. Items marked for mapping need to be resolved before proceeding.",
+      ready: lineItemsReady,
+      hasError: !lineItemsReady,
+      errorNote: lineItemsErrorNote,
+      thumbnails: [
+        { type: "lineItems" as const, label: "Pricing Schedule", page: 2 },
+        { type: "billing" as const, label: "Payment Terms", page: 3 },
+        { type: "customer" as const, label: "Customer Information", page: 1 },
+      ],
+      notes: lineItemNotes,
+      onNotesChange: setLineItemNotes,
+      content: <LineItemsTable items={lineItems} onChange={onLineItemsChange} />,
+    },
+  ];
 
-        <SummarySectionCard
-          id="billing-info"
-          heading="Billing Info"
-          description="Configure billing settings including term, cycle, and payment terms. These values will be applied to the subscription."
-          ready
-          thumbnails={[
-            { type: "billing", label: "Payment Terms", page: 3 },
-          ]}
-          notes={billingNotes}
-          onNotesChange={setBillingNotes}
-        >
-          <BillingInfoTable data={billingInfo} onChange={onBillingInfoChange} />
-        </SummarySectionCard>
+  const totalValue = lineItems.reduce((sum, i) => sum + i.totalPrice, 0);
+  const readyCount = 3 + (lineItemsReady ? 1 : 0);
+  const aiErrorNote = buildLineItemsErrorNote(lineItems, "overview");
+  const displayOverviewErrorNote = aiErrorNote ?? lastErrorNotes["overview-error"] ?? null;
+  const errorSectionId = sectionNavItems.find((s) => s.status === "warning")?.id ?? "line-items";
 
-        <SummarySectionCard
-          id="line-items"
-          heading="Line Items"
-          description="Review the extracted line items from the contract. Items marked for mapping need to be resolved before proceeding."
-          ready={lineItemsReady}
-          hasError={!lineItemsReady}
-          isLast
-          thumbnails={[
-            { type: "lineItems", label: "Pricing Schedule", page: 2 },
-            { type: "billing", label: "Payment Terms", page: 3 },
-            { type: "customer", label: "Customer Information", page: 1 },
-          ]}
-          notes={lineItemNotes}
-          onNotesChange={setLineItemNotes}
+  const overviewThumbnails: ThumbnailConfig[] = [
+    { type: "customer", label: "Customer Information", page: 1 },
+    { type: "lineItems", label: "Pricing Schedule", page: 2 },
+    { type: "billing", label: "Payment Terms", page: 3 },
+  ];
+
+  return (
+    <div className="flex gap-6 py-1">
+      <div className="shrink-0">
+        <StickySectionNav sections={sectionNavItems} />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        {/* Overview row */}
+        <div
+          className="grid gap-x-6"
+          style={{ gridTemplateColumns: `${CONTENT_COL} ${SIDEBAR_COL}` }}
         >
-          <LineItemsTable items={lineItems} onChange={onLineItemsChange} />
-        </SummarySectionCard>
+          <div className="rounded-t-xl border-x border-t border-gray-200/70 bg-white p-5 shadow-sm">
+            <div id="overview" className="scroll-mt-4">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <h2 className="font-sans text-[14px] font-bold leading-tight text-gray-900">Contract summary</h2>
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-semibold leading-4 text-violet-700">
+                  <Sparkles size={11} className="shrink-0 text-violet-500" />
+                  AI
+                </span>
+              </div>
+              <p className="mb-1 text-[13px] leading-relaxed text-gray-700">
+                12-month MSA with <span className="font-semibold text-gray-900">{customerName ?? customerDetails.accountName}</span>{" "}
+                covering {lineItems.length} line items — Growth CRM ({lineItems.find((i) => i.name.includes("CRM"))?.quantity ?? 25} seats), onboarding services, and premium support.
+                Total contract value:{" "}
+                <span className="font-semibold text-gray-900">
+                  ${totalValue.toLocaleString("en-US")}/yr
+                </span>
+                . {readyCount} of 4 sections are ready for approval.
+              </p>
+              <OverviewPDFLinks onOpenPDF={onOpenPDF} />
+            </div>
+          </div>
+          <div className="min-w-0 overflow-hidden p-5">
+            <OverviewSidebar
+              thumbnails={overviewThumbnails}
+              onToggleAiCommentResolved={toggleAiCommentResolved}
+              getAiCommentResolved={getAiCommentResolved}
+              displayOverviewErrorNote={displayOverviewErrorNote}
+              errorSectionId={errorSectionId}
+            />
+          </div>
+        </div>
+
+        {/* Section rows - each row has content on left, sidebar on right */}
+        {sectionConfigs.map((sec, idx) => (
+          <div
+            key={sec.id}
+            className="grid gap-x-6"
+            style={{ gridTemplateColumns: `${CONTENT_COL} ${SIDEBAR_COL}` }}
+          >
+            <div className={cn(
+              "border-x border-t border-gray-100 bg-white p-5",
+              idx === sectionConfigs.length - 1 && "rounded-b-xl border-b border-gray-200/70 shadow-sm"
+            )}>
+              <SectionContent
+                id={sec.id}
+                heading={sec.heading}
+                ready={sec.ready}
+                hasError={sec.hasError}
+              >
+                {sec.content}
+              </SectionContent>
+            </div>
+            <div className="min-w-0 overflow-hidden p-5">
+              <SectionSidebar
+                id={sec.id}
+                description={sec.description}
+                thumbnails={sec.thumbnails}
+                notes={sec.notes}
+                onNotesChange={sec.onNotesChange}
+                errorNote={sec.errorNote}
+                errorTargetSectionId={sec.hasError ? sec.id : undefined}
+                onToggleAiCommentResolved={toggleAiCommentResolved}
+                getAiCommentResolved={getAiCommentResolved}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

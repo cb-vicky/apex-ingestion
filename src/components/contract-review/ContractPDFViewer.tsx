@@ -362,7 +362,14 @@ function AddendumPage() {
   );
 }
 
-export function ContractPDFViewer({ pdf }: { pdf: SourcePDF }) {
+export function ContractPDFViewer({
+  pdf,
+  activePage,
+}: {
+  pdf: SourcePDF;
+  /** When set, only this page (1-based) is shown — used by the popup viewer. */
+  activePage?: number;
+}) {
   const content = pdfContent[pdf.id];
 
   if (!content) {
@@ -373,10 +380,15 @@ export function ContractPDFViewer({ pdf }: { pdf: SourcePDF }) {
     );
   }
 
+  const pages =
+    activePage != null
+      ? content.pages.slice(activePage - 1, activePage)
+      : content.pages;
+
   return (
     <div className="h-full overflow-auto bg-gray-200 p-6">
       <div className="mx-auto max-w-2xl space-y-6">
-        {content.pages.map((page, idx) => (
+        {pages.map((page, idx) => (
           <div key={idx}>{page}</div>
         ))}
       </div>
